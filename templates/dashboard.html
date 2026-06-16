@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareerSync AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen flex flex-col overflow-hidden">
+
+  <!-- ヘッダー -->
+  <header class="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-4 flex-shrink-0">
+    <h1 class="text-lg font-bold text-indigo-700 whitespace-nowrap">CareerSync AI</h1>
+    <span id="company-count" class="text-xs text-gray-400 whitespace-nowrap">読み込み中...</span>
+
+    <!-- ステータスフィルター -->
+    <nav class="flex gap-1 overflow-x-auto flex-1" id="status-filters"></nav>
+
+    <button id="btn-add-company"
+      class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap flex-shrink-0">
+      ＋ 企業を追加
+    </button>
+  </header>
+
+  <!-- メインレイアウト -->
+  <main class="flex flex-1 overflow-hidden">
+
+    <!-- 左: 企業リスト -->
+    <aside class="w-72 bg-white border-r border-gray-200 flex flex-col overflow-hidden flex-shrink-0">
+      <div id="company-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+    </aside>
+
+    <!-- 右: 詳細パネル -->
+    <section class="flex-1 overflow-y-auto">
+      <!-- 空状態 -->
+      <div id="empty-state" class="flex flex-col items-center justify-center h-full text-gray-400 select-none">
+        <div class="text-5xl mb-4">🏢</div>
+        <p class="text-base font-medium">企業を選択してください</p>
+        <p class="text-sm mt-1">左リストから選ぶか「企業を追加」から登録できます</p>
+      </div>
+      <!-- 詳細コンテンツ（JSで生成） -->
+      <div id="company-detail" class="hidden p-6 max-w-4xl mx-auto"></div>
+    </section>
+  </main>
+
+  <!-- モーダル: 企業追加 -->
+  <div id="modal-add" class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div class="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+        <h2 class="text-base font-bold">企業を追加</h2>
+        <button id="btn-close-modal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+      <form id="form-add-company" class="px-6 py-5 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            企業 URL <span class="text-red-500">*</span>
+          </label>
+          <input type="url" id="input-url" required placeholder="https://www.example.co.jp"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">企業名（任意）</label>
+          <input type="text" id="input-name" placeholder="未入力の場合はAIが自動取得"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">求人媒体（任意）</label>
+          <input type="text" id="input-source" placeholder="リクナビ / LinkedIn / 直接応募"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="input-analyze" checked class="rounded accent-indigo-600">
+          <span class="text-sm text-gray-700">登録後すぐにAI分析を実行する</span>
+        </label>
+        <div class="flex gap-3 pt-1">
+          <button type="button" id="btn-cancel-add"
+            class="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm hover:bg-gray-50">
+            キャンセル
+          </button>
+          <button type="submit" id="btn-submit-add"
+            class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+            登録
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="fixed bottom-5 right-5 hidden z-50 px-4 py-3 rounded-xl text-white text-sm shadow-xl transition-all"></div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

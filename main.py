@@ -156,13 +156,8 @@ async def health_check():
 
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
-    """ルートURL。後でダッシュボードHTMLを返す（フェーズ4で実装）。"""
-    return {
-        "message": "CareerSync AI 起動中",
-        "status": "ok",
-        "version": "0.1.0",
-        "docs": "/docs",
-    }
+    """ルートURL。ダッシュボードHTMLを返す。"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
 # ─────────────────────────────────────────────
