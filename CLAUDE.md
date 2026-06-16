@@ -18,8 +18,8 @@
 | フロントエンド | HTML5 / Tailwind CSS (CDN) / Vanilla JS |
 | データビジュアライゼーション | Chart.js (CDN) |
 | データベース | SQLite 3 |
-| AI | Google GenAI SDK (Gemini 1.5 Pro) |
-| 外部連携（後期） | Google Calendar API |
+| AI | Google GenAI SDK (Gemini 2.5 Flash) |
+| スケジュール解析 | Gemini Vision（メールスクショ解析） |
 
 ---
 
@@ -74,7 +74,7 @@ CareerManagement/
 ├── services/
 │   ├── scraper.py           # Webスクレイピング
 │   ├── ai_analyst.py        # Gemini API連携
-│   └── calendar_sync.py     # Googleカレンダー（後期）
+│   └── schedule_extractor.py # メールスクショからスケジュール抽出
 ├── static/
 │   ├── css/style.css        # カスタムCSS
 │   └── js/app.js            # 非同期通信・Chart.js
@@ -118,10 +118,10 @@ CareerManagement/
 | 1 | データベース基盤（SQLite） | 完了 |
 | 2 | バックエンドAPI基盤（FastAPI） | 完了 |
 | 3 | AIインテグレーション（Gemini） | 完了 |
-| 4 | UIプロトタイプ（静的HTML） | 未着手 |
-| 5 | フロントエンドとAPI接続 | 未着手 |
-| 6 | Googleカレンダー連携 | 未着手 |
-| 7 | 仕上げ・ドキュメント整備 | 未着手 |
+| 4 | UIプロトタイプ（静的HTML） | 完了 |
+| 5 | フロントエンドとAPI接続 | 完了 |
+| 6 | メールスクショからスケジュール自動登録（Google Calendar代替） | 完了 |
+| 7 | 仕上げ・ドキュメント整備 | 進行中 |
 
 ---
 
