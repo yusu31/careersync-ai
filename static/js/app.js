@@ -185,6 +185,16 @@ function renderDetail(c) {
           class="text-xs text-indigo-600 hover:text-indigo-700 font-medium">保存</button>
       </div>
     </div>
+
+    <!-- 面接スケジュール -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 mt-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-700">面接スケジュール</h3>
+        <button id="btn-open-schedule-modal"
+          class="text-xs text-indigo-600 hover:text-indigo-700 font-medium">📷 スクショから追加</button>
+      </div>
+      <div id="schedule-section" class="text-xs text-gray-400">読み込み中...</div>
+    </div>
   `;
 
   // レーダーチャート描画
@@ -223,6 +233,12 @@ function renderDetail(c) {
     });
     showToast('メモを保存しました', 'success');
   });
+
+  // 詳細パネル内の「スクショから追加」ボタン
+  document.getElementById('btn-open-schedule-modal')?.addEventListener('click', openScheduleModal);
+
+  // スケジュール一覧を非同期で読み込む
+  loadAndRenderSchedules(c.id);
 }
 
 function renderAnalysisSection(c, scores, sw, strategy, skillStack) {
@@ -503,6 +519,252 @@ function showToast(msg, type = 'info') {
   clearTimeout(toast._timer);
   toast._timer = setTimeout(() => toast.classList.add('hidden'), 3000);
 }
+
+// ── スケジュール表示 ──────────────────────────────────────────────────────
+
+async function loadAndRenderSchedules(companyId) {
+  const section = document.getElementById('schedule-section');
+  if (!section) return;
+
+  const schedules = await api(`/api/schedules?company_id=${companyId}`);
+
+  if (!schedules.length) {
+    section.innerHTML = `<p class="text-xs text-gray-400">スケジュールはまだ登録されていません。<br>「📷 スクショから追加」でメールを読み込めます。</p>`;
+    return;
+  }
+
+  const RESULT_STYLE = {
+    '通過':   'text-green-600',
+    '不合格': 'text-red-500',
+    '待機中': 'text-yellow-600',
+  };
+  const FORMAT_BADGE = {
+    'オンライン': 'bg-blue-50 text-blue-600',
+    '対面':       'bg-orange-50 text-orange-600',
+  };
+
+  section.innerHTML = schedules.map(s => {
+    const dt = s.start_time ? new Date(s.start_time) : null;
+    const dateStr = dt ? dt.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '日時未定';
+    const fmtBadge = FORMAT_BADGE[s.interview_format] || 'bg-gray-100 text-gray-500';
+    const resultStyle = RESULT_STYLE[s.result] || 'text-gray-400';
+    return `
+      <div class="flex items-start justify-between gap-3 py-2.5 border-b border-gray-100 last:border-0">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-sm font-medium">${s.event_title}</span>
+            ${s.interview_format ? `<span class="text-xs px-1.5 py-0.5 rounded-full ${fmtBadge}">${s.interview_format}</span>` : ''}
+            ${s.result ? `<span class="text-xs font-medium ${resultStyle}">${s.result}</span>` : ''}
+          </div>
+          <div class="text-xs text-gray-500 mt-0.5">${dateStr}${s.interviewer ? ` · ${s.interviewer}` : ''}</div>
+          ${s.interview_notes ? `<div class="text-xs text-gray-400 mt-0.5 truncate">${s.interview_notes}</div>` : ''}
+        </div>
+        <div class="flex gap-1 flex-shrink-0">
+          ${!s.result ? `
+          <select class="result-select text-xs border border-gray-200 rounded px-1 py-0.5" data-schedule-id="${s.id}">
+            <option value="">結果を記録</option>
+            <option>通過</option>
+            <option>不合格</option>
+            <option>待機中</option>
+          </select>` : ''}
+          <button class="del-schedule text-gray-300 hover:text-red-400 text-sm px-1" data-schedule-id="${s.id}" title="削除">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // 結果記録
+  section.querySelectorAll('.result-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      await api(`/api/schedules/${sel.dataset.scheduleId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ result: sel.value }),
+      });
+      await loadAndRenderSchedules(companyId);
+      showToast('結果を記録しました', 'success');
+    });
+  });
+
+  // 削除
+  section.querySelectorAll('.del-schedule').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('このスケジュールを削除しますか？')) return;
+      await api(`/api/schedules/${btn.dataset.scheduleId}`, { method: 'DELETE' });
+      await loadAndRenderSchedules(companyId);
+    });
+  });
+}
+
+// ── スクショ → スケジュール追加モーダル ──────────────────────────────────
+
+const scheduleModal = document.getElementById('modal-schedule-image');
+let pendingImage = null; // { base64, mimeType }
+
+function openScheduleModal() {
+  scheduleModal.classList.remove('hidden');
+  showPasteStep();
+  pendingImage = null;
+}
+
+function closeScheduleModal() {
+  scheduleModal.classList.add('hidden');
+  pendingImage = null;
+  document.getElementById('preview-img').src = '';
+}
+
+function showPasteStep() {
+  document.getElementById('paste-step').classList.remove('hidden');
+  document.getElementById('confirm-step').classList.add('hidden');
+  document.getElementById('paste-placeholder').classList.remove('hidden');
+  document.getElementById('paste-preview').classList.add('hidden');
+  document.getElementById('btn-extract-schedule').disabled = true;
+}
+
+function showConfirmStep(extracted) {
+  document.getElementById('paste-step').classList.add('hidden');
+  document.getElementById('confirm-step').classList.remove('hidden');
+
+  // 企業セレクトに現在の企業リストを入れる
+  const sel = document.getElementById('confirm-company-id');
+  sel.innerHTML = '<option value="">— 企業を選択 —</option>'
+    + state.companies.map(c =>
+        `<option value="${c.id}" ${c.id === extracted.company_id ? 'selected' : ''}>${c.name || c.url}</option>`
+      ).join('');
+
+  document.getElementById('confirm-event-title').value = extracted.event_title || '';
+  // ISO 8601 → datetime-local 形式へ変換
+  if (extracted.start_time) {
+    const dt = new Date(extracted.start_time);
+    if (!isNaN(dt)) {
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('confirm-start-time').value =
+        `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    }
+  }
+  document.getElementById('confirm-format').value    = extracted.interview_format || 'オンライン';
+  document.getElementById('confirm-interviewer').value = extracted.interviewer || '';
+  document.getElementById('confirm-notes').value     = extracted.interview_notes || '';
+}
+
+// 画像を state にセットし、プレビュー表示
+function setImage(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    const base64  = dataUrl.split(',')[1];
+    const mimeType = file.type || 'image/png';
+    pendingImage = { base64, mimeType };
+
+    document.getElementById('preview-img').src = dataUrl;
+    document.getElementById('paste-placeholder').classList.add('hidden');
+    document.getElementById('paste-preview').classList.remove('hidden');
+    document.getElementById('btn-extract-schedule').disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ボタン・モーダル開閉
+document.getElementById('btn-add-schedule-image').addEventListener('click', openScheduleModal);
+document.getElementById('btn-close-schedule-modal').addEventListener('click', closeScheduleModal);
+document.getElementById('btn-cancel-schedule-modal').addEventListener('click', closeScheduleModal);
+document.getElementById('btn-back-to-paste').addEventListener('click', showPasteStep);
+scheduleModal.addEventListener('click', e => { if (e.target === e.currentTarget) closeScheduleModal(); });
+
+// 「別の画像を選択」
+document.getElementById('btn-clear-image').addEventListener('click', () => {
+  pendingImage = null;
+  document.getElementById('paste-placeholder').classList.remove('hidden');
+  document.getElementById('paste-preview').classList.add('hidden');
+  document.getElementById('btn-extract-schedule').disabled = true;
+});
+
+// ファイル選択
+document.getElementById('image-file-input').addEventListener('change', e => {
+  if (e.target.files[0]) setImage(e.target.files[0]);
+});
+
+// ペーストエリアのクリック（フォーカスしてCtrl+V を受け取れるようにする）
+document.getElementById('paste-area').addEventListener('click', function() {
+  this.focus();
+});
+
+// グローバル paste イベント（モーダルが開いているときのみ処理）
+document.addEventListener('paste', e => {
+  if (scheduleModal.classList.contains('hidden')) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) { setImage(file); break; }
+    }
+  }
+});
+
+// AI 解析ボタン
+document.getElementById('btn-extract-schedule').addEventListener('click', async () => {
+  if (!pendingImage) return;
+  const btn = document.getElementById('btn-extract-schedule');
+  btn.disabled = true;
+  btn.textContent = '解析中...';
+
+  try {
+    const extracted = await api('/api/schedules/from-image', {
+      method: 'POST',
+      body: JSON.stringify({ image_base64: pendingImage.base64, mime_type: pendingImage.mimeType }),
+    });
+    showConfirmStep(extracted);
+    showToast('メール内容を読み取りました', 'success');
+  } catch (e) {
+    showToast(`解析エラー: ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'AIで解析する';
+  }
+});
+
+// 確認後に保存
+document.getElementById('form-save-schedule').addEventListener('submit', async e => {
+  e.preventDefault();
+  const companyId = parseInt(document.getElementById('confirm-company-id').value);
+  if (!companyId) { showToast('企業を選択してください', 'error'); return; }
+
+  const startTimeVal = document.getElementById('confirm-start-time').value;
+  if (!startTimeVal) { showToast('日時を入力してください', 'error'); return; }
+
+  const btn = document.getElementById('btn-save-schedule');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  try {
+    await api('/api/schedules', {
+      method: 'POST',
+      body: JSON.stringify({
+        company_id:       companyId,
+        event_title:      document.getElementById('confirm-event-title').value,
+        start_time:       startTimeVal,
+        interview_format: document.getElementById('confirm-format').value,
+        interviewer:      document.getElementById('confirm-interviewer').value || null,
+        interview_notes:  document.getElementById('confirm-notes').value || null,
+      }),
+    });
+
+    closeScheduleModal();
+    showToast('スケジュールを登録しました！', 'success');
+
+    // 企業詳細を表示中なら再描画
+    if (state.selectedId === companyId) {
+      await loadAndRenderSchedules(companyId);
+    } else {
+      await selectCompany(companyId);
+    }
+  } catch (err) {
+    showToast(`保存エラー: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'スケジュールに保存';
+  }
+});
 
 // ── 起動 ──────────────────────────────────────────────────────────────────
 

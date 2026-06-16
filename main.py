@@ -20,6 +20,7 @@ from database.models import init_db
 from database.connection import get_connection
 from services.scraper import scrape_company
 from services.ai_analyst import analyze_company
+from services.schedule_extractor import extract_schedule_from_image
 
 
 # ─────────────────────────────────────────────
@@ -129,6 +130,11 @@ class UserProfileUpdate(BaseModel):
     current_skills: Optional[str] = None
     desired_role: Optional[str] = None
     ng_keywords: Optional[str] = None
+
+
+class ScheduleFromImage(BaseModel):
+    image_base64: str
+    mime_type: str = "image/png"
 
 
 # ─────────────────────────────────────────────
@@ -539,3 +545,48 @@ async def analyze_company_endpoint(company_id: int):
         return row_to_dict(row)
     finally:
         conn.close()
+
+
+# ─────────────────────────────────────────────
+# スクショからスケジュール抽出 API
+# ─────────────────────────────────────────────
+
+@app.post("/api/schedules/from-image", tags=["schedules"])
+async def schedule_from_image(body: ScheduleFromImage):
+    """
+    メールのスクリーンショット（base64）から面接スケジュールを抽出して返す。
+
+    保存は行わない。フロントエンドで確認後に POST /api/schedules で保存する。
+    抽出した company_name でDBを検索し、一致する企業があれば company_id も返す。
+    """
+    import base64 as b64
+
+    try:
+        image_bytes = b64.b64decode(body.image_base64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="画像データのデコードに失敗しました")
+
+    try:
+        extracted = extract_schedule_from_image(image_bytes, body.mime_type)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"画像解析に失敗しました: {str(e)}")
+
+    # 企業名でDB照合（部分一致）
+    extracted["company_id"] = None
+    extracted["company_name_matched"] = None
+
+    company_name = extracted.get("company_name")
+    if company_name:
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT id, name FROM companies WHERE name LIKE ?",
+                (f"%{company_name}%",),
+            ).fetchone()
+            if row:
+                extracted["company_id"] = row["id"]
+                extracted["company_name_matched"] = row["name"]
+        finally:
+            conn.close()
+
+    return extracted
