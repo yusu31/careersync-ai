@@ -2,6 +2,13 @@
 
 > 転職活動用 パーソナル企業分析＆選考管理ハブ
 
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-CDN-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
+[![License](https://img.shields.io/badge/License-Personal_Project-lightgrey)](LICENSE)
+
 企業URLを1つ入力するだけで、Gemini AIが企業情報を自動収集・分析。スコアリング・比較・選考ステータス管理をすべて1つのダッシュボードで完結させる個人専用の「選考コマンドセンター」。
 
 ---
@@ -19,13 +26,25 @@
 
 ## スクリーンショット
 
-### ダッシュボード
+### ダッシュボード（選考状況の一覧）
 
 ![ダッシュボード全体](docs/images/01_dashboard.png)
 
 ### 企業詳細・5軸レーダーチャート
 
 ![企業詳細・レーダーチャート](docs/images/02_detail_radar.png)
+
+### 企業詳細（AI分析・面接対策クイックシート）
+
+![企業詳細・AI分析](docs/images/03_detail_another.png)
+
+### 企業登録モーダル（URL入力→AI自動分析）
+
+![企業登録モーダル](docs/images/04_modal_add_company.png)
+
+### メールスクショからの面接スケジュール自動登録
+
+![スケジュール自動登録](docs/images/05_modal_schedule_image.png)
 
 ### 操作デモ（企業選択→詳細表示→モーダル操作）
 
