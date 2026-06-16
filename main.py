@@ -18,6 +18,8 @@ from pydantic import BaseModel
 
 from database.models import init_db
 from database.connection import get_connection
+from services.scraper import scrape_company
+from services.ai_analyst import analyze_company
 
 
 # ─────────────────────────────────────────────
@@ -459,6 +461,86 @@ async def update_profile(body: UserProfileUpdate):
         conn.commit()
 
         row = conn.execute("SELECT * FROM user_profile WHERE id = 1").fetchone()
+        return row_to_dict(row)
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────
+# AI 分析 API
+# ─────────────────────────────────────────────
+
+# AI が返すオブジェクト型フィールド。DB保存前にJSON文字列化する
+_JSON_OBJECT_FIELDS = {"strengths_weaknesses", "interview_strategy", "scores", "skill_stack"}
+
+
+@app.post("/api/companies/{company_id}/analyze", tags=["ai"])
+async def analyze_company_endpoint(company_id: int):
+    """
+    企業URLをスクレイピングし、Gemini AIで分析してDBに保存する。
+
+    処理の流れ:
+    1. DBから企業URLとユーザープロフィールを取得
+    2. 企業サイトをスクレイピング
+    3. Gemini AI に分析を依頼
+    4. 結果をDB（companiesテーブル）にPATCH
+    5. 更新後の企業オブジェクトを返す
+    """
+    conn = get_connection()
+    try:
+        company = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if company is None:
+            raise HTTPException(status_code=404, detail="企業が見つかりません")
+
+        profile_row = conn.execute("SELECT * FROM user_profile WHERE id = 1").fetchone()
+        user_profile = row_to_dict(profile_row) if profile_row else {}
+
+        company_url = company["url"]
+    finally:
+        conn.close()
+
+    # スクレイピング（失敗しても空文字を返すので処理は継続）
+    scraped_text = scrape_company(company_url)
+
+    # Gemini AI 分析（例外はそのまま上げてクライアントに 500 を返す）
+    try:
+        ai_result = analyze_company(company_url, scraped_text, user_profile)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI分析に失敗しました: {str(e)}")
+
+    # オブジェクト型フィールドはJSON文字列に変換してから保存する
+    for field in _JSON_OBJECT_FIELDS:
+        if field in ai_result and isinstance(ai_result[field], (dict, list)):
+            ai_result[field] = json.dumps(ai_result[field], ensure_ascii=False)
+
+    # None 値は除外して UPDATE
+    updates = {k: v for k, v in ai_result.items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=502, detail="AI分析結果が空でした")
+
+    # companies テーブルの有効カラムのみ抽出（不正カラムによるSQLエラーを防ぐ）
+    valid_columns = {
+        "name", "industry", "employees", "founded_year", "listing_status",
+        "development_type", "location", "commute_time_car", "commute_time_shinkansen",
+        "work_style", "overtime_hours", "paid_leave_rate", "transfer",
+        "salary", "bonus", "expected_first_salary", "salary_upper", "years_to_recover",
+        "inexperienced_ok", "training_program", "hiring_probability_score",
+        "job_description", "skill_stack", "tech_growth_score", "career_growth_score",
+        "career_path", "benefits", "summary", "strengths_weaknesses",
+        "interview_strategy", "scores",
+    }
+    updates = {k: v for k, v in updates.items() if k in valid_columns}
+
+    conn = get_connection()
+    try:
+        set_clause = ", ".join(f"{col} = ?" for col in updates)
+        values = list(updates.values()) + [company_id]
+        conn.execute(f"UPDATE companies SET {set_clause} WHERE id = ?", values)
+        conn.commit()
+
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
         return row_to_dict(row)
     finally:
         conn.close()
