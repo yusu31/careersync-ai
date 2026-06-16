@@ -1,2 +1,22 @@
-/* CareerSync AI — カスタムCSS */
-/* Tailwind CDN で対応できないアニメーションや微調整をここに記述 */
+/* CareerSync AI — カスタム CSS */
+
+/* スクロールバーを細くしてすっきりさせる */
+#company-list::-webkit-scrollbar { width: 4px; }
+#company-list::-webkit-scrollbar-track { background: transparent; }
+#company-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+/* AI 分析中のスピナー（Tailwind の animate-spin + border trick） */
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0e7ff;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ステータスフィルターのスクロールバーを非表示 */
+#status-filters::-webkit-scrollbar { display: none; }
+#status-filters { scrollbar-width: none; }
