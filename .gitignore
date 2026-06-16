@@ -1,0 +1,46 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 環境変数・APIキー（絶対にコミットしない）
+.env
+.env.local
+.env.production
+
+# データベース（個人情報を含むため）
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ログ
+*.log
+logs/
+
+# 一時ファイル
+tmp/
+temp/
+
+# Google OAuth認証情報（フェーズ6で使用）
+token.json
+credentials.json

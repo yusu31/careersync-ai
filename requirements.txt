@@ -1,0 +1,16 @@
+# Web フレームワーク
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+
+# テンプレートエンジン（HTMLをPythonから描画するため）
+jinja2==3.1.4
+
+# Webスクレイピング（企業サイトのテキスト抽出）
+beautifulsoup4==4.12.3
+requests==2.32.3
+
+# AI連携（Gemini API）
+google-generativeai==0.8.3
+
+# 環境変数・APIキー管理（.envファイルの読み込み）
+python-dotenv==1.0.1
