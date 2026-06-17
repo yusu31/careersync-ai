@@ -63,61 +63,83 @@
 
     <!-- 比較ビュー（全幅・比較モード時のみ表示） -->
     <section id="comparison-section" class="hidden flex-1 overflow-auto p-6">
+
+      <!-- ヘッダー行 -->
       <div class="mb-4 flex items-center justify-between">
         <div>
-          <h2 class="text-lg font-bold text-gray-800">企業スコア比較</h2>
+          <h2 class="text-lg font-bold text-gray-800">企業比較</h2>
           <p class="text-sm text-gray-400 mt-0.5">列ヘッダーをクリックでソート。行をクリックで詳細へ。</p>
         </div>
-        <div class="flex items-center gap-3 text-xs text-gray-400">
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-high"></span>高（8〜10）</span>
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-mid"></span>中（5〜7）</span>
-          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-low"></span>低（1〜4）</span>
+        <!-- タブ切り替え -->
+        <div class="flex rounded-lg border border-gray-200 overflow-hidden text-sm font-medium">
+          <button id="btn-tab-score"
+            class="compare-tab-btn px-4 py-1.5 bg-indigo-600 text-white transition-colors whitespace-nowrap">
+            スコア
+          </button>
+          <button id="btn-tab-cond"
+            class="compare-tab-btn px-4 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition-colors whitespace-nowrap">
+            条件
+          </button>
         </div>
       </div>
-      <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
-        <div class="overflow-x-auto">
-          <table id="comparison-table" class="w-full text-sm">
-            <thead>
-              <tr class="bg-gray-50 border-b border-gray-200">
-                <th class="sort-th text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="name">
-                  企業名 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="status">
-                  ステータス <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="hiring">
-                  採用確率 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="growth">
-                  成長性 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="stability">
-                  安定性 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="culture_fit">
-                  カルチャー <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_life_balance">
-                  WLB <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="compensation">
-                  給与 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="tech">
-                  技術成長 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="career">
-                  キャリア <span class="sort-icon text-gray-300">↕</span>
-                </th>
-                <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="total">
-                  総合 <span class="sort-icon text-gray-300">↕</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody id="comparison-tbody"></tbody>
-          </table>
+
+      <!-- ── スコアタブ ── -->
+      <div id="compare-tab-score">
+        <div class="flex justify-end mb-2 gap-3 text-xs text-gray-400">
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-high"></span>高</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-mid"></span>中</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-low"></span>低</span>
+        </div>
+        <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <div class="overflow-x-auto">
+            <table id="comparison-table" class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="sort-th text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="name">企業名 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="status">ステータス <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="hiring">採用確率 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="growth">成長性 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="stability">安定性 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="culture_fit">カルチャー <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_life_balance">WLB <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="compensation">給与評価 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="tech">技術成長 <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="career">キャリア <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="total">総合 <span class="sort-icon text-gray-300">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="comparison-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
+
+      <!-- ── 条件タブ ── -->
+      <div id="compare-tab-cond" class="hidden">
+        <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+          <div class="overflow-x-auto">
+            <table id="conditions-table" class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="sort-th-c text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="name">企業名 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="status">ステータス <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="salary">初年度年収 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="salary_upper">年収上限 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="location">勤務地 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_style">勤務形態 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="overtime">残業時間/月 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="paid_leave">有給消化率 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="transfer">転勤 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="inexperienced">未経験OK <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="training">研修制度 <span class="sort-icon-c text-gray-300">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="conditions-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </section>
 
   </main>
