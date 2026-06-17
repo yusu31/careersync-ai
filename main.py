@@ -22,6 +22,7 @@ from services.scraper import scrape_company
 from services.ai_analyst import analyze_company
 from services.schedule_extractor import extract_schedule_from_image
 from services.info_supplement import supplement, UploadedFile, _EXT_TO_MIME
+from services.commute_calculator import estimate_commute
 
 
 # ─────────────────────────────────────────────
@@ -679,5 +680,70 @@ async def supplement_company(
             "updated_fields": list(safe_updates.keys()),
             "company": row_to_dict(row),
         }
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────
+# 通勤時間算出 API
+# ─────────────────────────────────────────────
+
+@app.post("/api/companies/{company_id}/commute", tags=["ai"])
+async def calc_commute(company_id: int):
+    """
+    Gemini を使って郡山市字原中から会社所在地への
+    交通手段別通勤情報（時間・距離・費用・経路）を算出してDBに保存する。
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="企業が見つかりません")
+        location = row["location"]
+        if not location:
+            raise HTTPException(status_code=400, detail="勤務地が登録されていません")
+    finally:
+        conn.close()
+
+    try:
+        commute_data = estimate_commute(location)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"通勤時間の推定に失敗しました: {str(e)}")
+
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE companies SET commute_data = ? WHERE id = ?",
+            (json.dumps(commute_data, ensure_ascii=False), company_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        return {"commute_data": commute_data, "company": row_to_dict(row)}
+    finally:
+        conn.close()
+
+
+# ─────────────────────────────────────────────
+# 求人元（job_sources）更新 API
+# ─────────────────────────────────────────────
+
+class JobSourcesUpdate(BaseModel):
+    job_sources: list[str]
+
+@app.patch("/api/companies/{company_id}/sources", tags=["companies"])
+async def update_job_sources(company_id: int, body: JobSourcesUpdate):
+    """求人元タグリストを更新する。"""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT id FROM companies WHERE id = ?", (company_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="企業が見つかりません")
+        conn.execute(
+            "UPDATE companies SET job_sources = ? WHERE id = ?",
+            (json.dumps(body.job_sources, ensure_ascii=False), company_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        return row_to_dict(row)
     finally:
         conn.close()

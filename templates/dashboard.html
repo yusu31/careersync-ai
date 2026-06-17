@@ -90,11 +90,11 @@
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-mid"></span>中</span>
           <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded score-chip-low"></span>低</span>
         </div>
-        <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+        <div class="compare-table-wrap">
           <div class="overflow-x-auto">
             <table id="comparison-table" class="w-full text-sm">
               <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
+                <tr>
                   <th class="sort-th text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="name">企業名 <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="status">ステータス <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="hiring">採用確率 <span class="sort-icon text-gray-300">↕</span></th>
@@ -116,22 +116,32 @@
 
       <!-- ── 条件タブ ── -->
       <div id="compare-tab-cond" class="hidden">
-        <div class="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+        <!-- 通勤交通手段セレクター -->
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xs text-gray-500 font-medium">通勤手段:</span>
+          <button class="commute-transport-tab active" data-mode="car">🚗 車</button>
+          <button class="commute-transport-tab" data-mode="shinkansen">🚄 新幹線+電車</button>
+          <button class="commute-transport-tab" data-mode="train">🚃 在来線</button>
+          <button class="commute-transport-tab" data-mode="bus">🚌 バス</button>
+          <button class="commute-transport-tab" data-mode="walk">🚶 徒歩</button>
+        </div>
+        <div class="compare-table-wrap">
           <div class="overflow-x-auto">
             <table id="conditions-table" class="w-full text-sm">
               <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
+                <tr>
                   <th class="sort-th-c text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="name">企業名 <span class="sort-icon-c text-gray-300">↕</span></th>
                   <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="status">ステータス <span class="sort-icon-c text-gray-300">↕</span></th>
                   <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="salary">初年度年収 <span class="sort-icon-c text-gray-300">↕</span></th>
                   <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="salary_upper">年収上限 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="commute">通勤時間 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="distance">距離 <span class="sort-icon-c text-gray-300">↕</span></th>
                   <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="location">勤務地 <span class="sort-icon-c text-gray-300">↕</span></th>
                   <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_style">勤務形態 <span class="sort-icon-c text-gray-300">↕</span></th>
-                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="overtime">残業時間/月 <span class="sort-icon-c text-gray-300">↕</span></th>
-                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="paid_leave">有給消化率 <span class="sort-icon-c text-gray-300">↕</span></th>
-                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="transfer">転勤 <span class="sort-icon-c text-gray-300">↕</span></th>
-                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="inexperienced">未経験OK <span class="sort-icon-c text-gray-300">↕</span></th>
-                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="training">研修制度 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="overtime">残業/月 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-right px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="paid_leave">有給 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="inexperienced">未経験 <span class="sort-icon-c text-gray-300">↕</span></th>
+                  <th class="sort-th-c text-left px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="sources">求人元 <span class="sort-icon-c text-gray-300">↕</span></th>
                 </tr>
               </thead>
               <tbody id="conditions-tbody"></tbody>

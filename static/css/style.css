@@ -39,18 +39,164 @@
 .score-chip-low,  .score-chip.low  { background: #fee2e2; color: #b91c1c; }
 .score-chip.none  { background: #f3f4f6; color: #9ca3af; font-weight: 400; }
 
-#comparison-table tbody tr {
-  border-bottom: 1px solid #f3f4f6;
-  cursor: pointer;
-  transition: background 0.12s;
-}
-#comparison-table tbody tr:hover  { background: #f8f9ff; }
-#comparison-table tbody tr:last-child { border-bottom: none; }
+/* ── 比較テーブル共通（スコア・条件どちらも） ──────────────── */
 
-.sort-th.active            { color: #4f46e5; }
-.sort-th.active .sort-icon { color: #4f46e5; }
-.total-score-cell          { font-weight: 700; }
-.view-toggle-btn           { transition: background 0.15s, color 0.15s; }
+/* グラデーションヘッダー */
+#comparison-table thead tr,
+#conditions-table thead tr {
+  background: linear-gradient(135deg, #f8f7ff 0%, #eff6ff 100%);
+}
+
+/* 行スタイル：ストライプ + ホバー */
+#comparison-table tbody tr,
+#conditions-table tbody tr {
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  border-bottom: 1px solid #f0f0f8;
+  position: relative;
+}
+#comparison-table tbody tr:nth-child(even),
+#conditions-table tbody tr:nth-child(even) {
+  background: #fafafe;
+}
+#comparison-table tbody tr:hover,
+#conditions-table tbody tr:hover {
+  background: #eef2ff !important;
+  transform: translateX(2px);
+  box-shadow: inset 3px 0 0 #6366f1, 0 2px 12px rgba(99,102,241,0.08);
+}
+#comparison-table tbody tr:last-child,
+#conditions-table tbody tr:last-child { border-bottom: none; }
+
+/* ソートヘッダー */
+.sort-th, .sort-th-c {
+  user-select: none;
+  position: relative;
+  transition: color 0.15s, background 0.15s;
+}
+.sort-th:hover, .sort-th-c:hover { background: rgba(99,102,241,0.06); }
+.sort-th.active, .sort-th-c.active            { color: #4f46e5; }
+.sort-th.active .sort-icon,
+.sort-th-c.active .sort-icon-c { color: #4f46e5; font-weight: 700; }
+
+.total-score-cell { font-weight: 700; }
+.view-toggle-btn  { transition: background 0.15s, color 0.15s; }
+
+/* テーブルラッパーにシャドウと角丸 */
+.compare-table-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e8e8f4;
+  box-shadow: 0 4px 24px rgba(99,102,241,0.07), 0 1px 4px rgba(0,0,0,0.04);
+  background: white;
+}
+
+/* 条件テーブル — 通勤 feasibility チップ */
+.feasibility-daily      { color: #15803d; font-weight: 600; }
+.feasibility-occasional { color: #a16207; font-weight: 600; }
+.feasibility-impractical{ color: #b91c1c; font-weight: 600; }
+
+/* 求人元タグ */
+.source-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+  white-space: nowrap;
+}
+
+/* ── 通勤グリッドカード ポップオーバー ──────────────────────── */
+
+/* グリッドカードが relative なのでポップオーバーは absolute */
+[id^="commute-grid-card-"] { position: relative; }
+
+[id^="commute-popover-"] {
+  min-width: 240px;
+  animation: popoverIn 0.15s ease-out;
+}
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── 通勤カード（詳細パネル）※比較ビュー用タブは残す ────────── */
+
+.commute-transport-tab {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.commute-transport-tab:hover { border-color: #a5b4fc; color: #4f46e5; background: #f5f3ff; }
+.commute-transport-tab.active {
+  background: #4f46e5;
+  color: white;
+  border-color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79,70,229,0.3);
+}
+
+.commute-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f8f7ff;
+  border: 1px solid #ede9fe;
+  flex: 1;
+  min-width: 80px;
+}
+.commute-stat-value { font-size: 20px; font-weight: 700; color: #4f46e5; line-height: 1.2; }
+.commute-stat-label { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+
+/* ── 求人元編集エリア ────────────────────────────────────────── */
+.source-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  min-height: 40px;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.source-input-wrap:focus-within { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,0.15); }
+.source-tag-removable {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: #ede9fe;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+}
+.source-tag-removable button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #7c3aed;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 1px;
+  opacity: 0.6;
+  transition: opacity 0.1s;
+}
+.source-tag-removable button:hover { opacity: 1; }
 
 /* ── AIチャットバブル ──────────────────────────────────────── */
 

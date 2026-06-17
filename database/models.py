@@ -125,9 +125,25 @@ def init_db() -> None:
             );
         """)
         conn.commit()
+
+        # 既存DBへの追加カラムマイグレーション（ADD COLUMN は冪等ではないためtry/exceptで対応）
+        _safe_add_columns(conn, "companies", [
+            ("job_sources",  "TEXT DEFAULT '[]'"),   # 求人元タグ JSON配列
+            ("commute_data", "TEXT"),                 # 通勤データ JSON (車/新幹線/電車)
+        ])
+
         print("[OK] データベースの初期化が完了しました")
     finally:
         conn.close()
+
+
+def _safe_add_columns(conn, table: str, columns: list[tuple[str, str]]) -> None:
+    """既存テーブルにカラムがなければ追加する（既にある場合はスキップ）。"""
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    for col_name, col_def in columns:
+        if col_name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}")
+    conn.commit()
 
 
 if __name__ == "__main__":
