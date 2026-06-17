@@ -9,7 +9,7 @@ import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -21,6 +21,7 @@ from database.connection import get_connection
 from services.scraper import scrape_company
 from services.ai_analyst import analyze_company
 from services.schedule_extractor import extract_schedule_from_image
+from services.info_supplement import supplement, UploadedFile, _EXT_TO_MIME
 
 
 # ─────────────────────────────────────────────
@@ -590,3 +591,93 @@ async def schedule_from_image(body: ScheduleFromImage):
             conn.close()
 
     return extracted
+
+
+# ─────────────────────────────────────────────
+# AIチャット補完 API
+# ─────────────────────────────────────────────
+
+@app.post("/api/companies/{company_id}/supplement", tags=["ai"])
+async def supplement_company(
+    company_id: int,
+    text: str = Form(""),
+    urls: str = Form("[]"),
+    files: list[UploadFile] = File([]),
+):
+    """
+    テキスト・URL・ファイル（画像/PDF/Word/Excel）を元に企業情報を補完する。
+
+    - text: 面接メモ・コピペ情報など自由テキスト
+    - urls: JSON配列文字列 ["https://...", ...]
+    - files: multipart ファイル（複数可）
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="企業が見つかりません")
+        current_info = row_to_dict(row)
+    finally:
+        conn.close()
+
+    # URLリストをパース
+    try:
+        url_list: list[str] = json.loads(urls)
+    except Exception:
+        url_list = []
+
+    # ファイルをバイト列に変換
+    uploaded: list[UploadedFile] = []
+    for f in files:
+        if not f.filename:
+            continue
+        ext = "." + f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+        mime = f.content_type or _EXT_TO_MIME.get(ext, "application/octet-stream")
+        content = await f.read()
+        uploaded.append(UploadedFile(filename=f.filename, content=content, mime_type=mime))
+
+    # AI補完呼び出し
+    try:
+        result = supplement(
+            current_info=current_info,
+            text=text,
+            urls=url_list,
+            files=uploaded,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI補完に失敗しました: {str(e)}")
+
+    updates = result.get("updates", {})
+    if not updates:
+        return {"updated_fields": [], "company": current_info}
+
+    # companies テーブルの有効カラムのみ抽出
+    valid_columns = {
+        "name", "industry", "employees", "founded_year", "listing_status",
+        "development_type", "location", "work_style", "overtime_hours",
+        "paid_leave_rate", "transfer", "salary", "expected_first_salary",
+        "salary_upper", "inexperienced_ok", "training_program",
+        "hiring_probability_score", "job_description", "skill_stack",
+        "tech_growth_score", "career_growth_score", "career_path",
+        "benefits", "summary", "strengths_weaknesses",
+        "interview_strategy", "scores",
+    }
+    safe_updates = {k: v for k, v in updates.items() if k in valid_columns}
+
+    conn = get_connection()
+    try:
+        if safe_updates:
+            set_clause = ", ".join(f"{col} = ?" for col in safe_updates)
+            values = list(safe_updates.values()) + [company_id]
+            conn.execute(f"UPDATE companies SET {set_clause} WHERE id = ?", values)
+            conn.commit()
+
+        row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        return {
+            "updated_fields": list(safe_updates.keys()),
+            "company": row_to_dict(row),
+        }
+    finally:
+        conn.close()

@@ -20,3 +20,101 @@
 /* ステータスフィルターのスクロールバーを非表示 */
 #status-filters::-webkit-scrollbar { display: none; }
 #status-filters { scrollbar-width: none; }
+
+/* ── AIチャットバブル ──────────────────────────────────────── */
+
+/* グラデーション + GPU アクセラレーション */
+.ai-bubble {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  will-change: transform, box-shadow;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
+}
+.ai-bubble:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(124, 58, 237, 0.65);
+}
+.ai-bubble:active { transform: scale(0.95); }
+
+/* バブルの呼吸アニメーション（待機中） */
+@keyframes bubblePulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(124,58,237,0.45); }
+  50%       { box-shadow: 0 4px 32px rgba(124,58,237,0.75), 0 0 0 8px rgba(124,58,237,0.12); }
+}
+.ai-bubble.idle { animation: bubblePulse 2.8s ease-in-out infinite; }
+
+/* バブルから展開するモーフィング（パネル open 時にクラス付与） */
+.ai-bubble.morphing {
+  animation: none;
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.3s ease-in, opacity 0.2s ease-in;
+}
+
+/* ── パネル本体のオーブ装飾 ──────────────────────────────── */
+.ai-orb {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  box-shadow: 0 0 12px rgba(124,58,237,0.6);
+}
+.ai-orb-sm {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  box-shadow: 0 0 8px rgba(124,58,237,0.5);
+}
+
+/* ── AI パネルの開閉アニメーション ─────────────────────────── */
+.ai-panel.open #ai-panel-overlay  { opacity: 1; pointer-events: auto; }
+.ai-panel.open #ai-panel-body     { scale: 1; opacity: 1; pointer-events: auto; }
+.ai-panel.open                    { pointer-events: auto; }
+
+#ai-panel-body { will-change: transform, opacity; }
+
+/* ── 送信ボタン ──────────────────────────────────────────── */
+.ai-send-btn {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  box-shadow: 0 2px 12px rgba(99,102,241,0.4);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.ai-send-btn:not(:disabled):hover {
+  box-shadow: 0 2px 20px rgba(99,102,241,0.7);
+  transform: translateY(-1px);
+}
+.ai-send-btn:not(:disabled):active { transform: translateY(0); }
+
+/* ツールボタン */
+.ai-tool-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.ai-tool-btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.2);
+  transform: scale(1.08);
+}
+
+/* ── チャット履歴のスクロールバー ───────────────────────────── */
+#ai-chat-messages::-webkit-scrollbar { width: 3px; }
+#ai-chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* ── AI思考中ドットアニメーション ──────────────────────────── */
+.ai-thinking-dots span {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #a78bfa;
+  animation: thinkingBounce 1.3s ease-in-out infinite;
+}
+.ai-thinking-dots span:nth-child(2) { animation-delay: 0.18s; }
+.ai-thinking-dots span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes thinkingBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40% { transform: translateY(-7px); opacity: 1; }
+}
+
+/* ── 更新フィールドのハイライトアニメーション ────────────────── */
+@keyframes fieldUpdated {
+  0%   { background-color: rgba(74,222,128,0.25); box-shadow: 0 0 0 2px rgba(74,222,128,0.4); }
+  70%  { background-color: rgba(74,222,128,0.10); box-shadow: 0 0 0 0px rgba(74,222,128,0); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+.field-updated { animation: fieldUpdated 2.2s ease-out forwards; border-radius: 6px; }

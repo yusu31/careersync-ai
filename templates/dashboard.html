@@ -202,6 +202,139 @@
   <!-- トースト通知 -->
   <div id="toast" class="fixed bottom-5 right-5 hidden z-50 px-4 py-3 rounded-xl text-white text-sm shadow-xl transition-all"></div>
 
+  <!-- ── AIチャット補完バブル ────────────────────────────────── -->
+  <!-- 企業選択時のみ表示するフローティングボタン -->
+  <button id="btn-ai-bubble" aria-label="AIチャットで情報を補完"
+    class="ai-bubble hidden fixed bottom-6 right-6 z-40
+           w-14 h-14 rounded-full text-white text-xl font-bold
+           flex items-center justify-center select-none
+           focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2">
+    ✦
+  </button>
+
+  <!-- ── AIチャットパネル（backdrop-blur glassmorphism） ──────── -->
+  <div id="ai-chat-panel"
+    class="ai-panel fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+    aria-hidden="true">
+
+    <!-- 背景オーバーレイ -->
+    <div id="ai-panel-overlay"
+      class="absolute inset-0 bg-black/30 backdrop-blur-sm
+             opacity-0 transition-opacity duration-300"></div>
+
+    <!-- パネル本体 -->
+    <div id="ai-panel-body"
+      class="relative w-full max-w-lg mx-4 rounded-2xl overflow-hidden
+             shadow-2xl flex flex-col
+             scale-90 opacity-0
+             transition-all duration-300 ease-out"
+      style="max-height: 85vh; background: rgba(15,23,42,0.85);
+             backdrop-filter: blur(24px) saturate(180%);
+             border: 1px solid rgba(255,255,255,0.12);">
+
+      <!-- パネルヘッダー -->
+      <div class="flex items-center justify-between px-5 py-4"
+           style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <div class="flex items-center gap-3">
+          <div class="ai-orb w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0">✦</div>
+          <div>
+            <p class="text-white font-semibold text-sm leading-tight">AI情報補完</p>
+            <p id="ai-panel-company-name" class="text-violet-300 text-xs mt-0.5 truncate max-w-56"></p>
+          </div>
+        </div>
+        <button id="btn-ai-panel-close"
+          class="text-slate-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10">
+          ✕
+        </button>
+      </div>
+
+      <!-- チャット履歴エリア -->
+      <div id="ai-chat-messages"
+        class="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
+        style="min-height: 120px; max-height: 320px;">
+        <!-- 初期メッセージ -->
+        <div class="ai-msg-system flex gap-2.5 items-start">
+          <div class="ai-orb-sm w-6 h-6 rounded-full flex items-center justify-center text-xs text-white flex-shrink-0">✦</div>
+          <div class="text-slate-300 text-sm leading-relaxed bg-white/5 rounded-xl rounded-tl-none px-3 py-2 max-w-xs">
+            求人票・面接メモ・URLなど、どんな情報でも送ってください。企業情報を自動で更新します。
+          </div>
+        </div>
+      </div>
+
+      <!-- 添付ファイルプレビューエリア -->
+      <div id="ai-attachments-preview"
+        class="hidden px-4 pb-1 flex-wrap gap-2"
+        style="border-top: 1px solid rgba(255,255,255,0.06);">
+      </div>
+
+      <!-- URLリストエリア -->
+      <div id="ai-url-list" class="hidden px-4 pb-2 space-y-1.5"></div>
+
+      <!-- URL追加フォーム -->
+      <div id="ai-url-form" class="hidden px-4 pb-2">
+        <div class="flex gap-2">
+          <input id="ai-url-input" type="url"
+            placeholder="https://..."
+            class="flex-1 bg-white/10 border border-white/15 rounded-lg px-3 py-1.5
+                   text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-400">
+          <button id="btn-ai-url-add"
+            class="bg-violet-600 hover:bg-violet-500 text-white text-xs px-3 py-1.5 rounded-lg transition-colors">
+            追加
+          </button>
+          <button id="btn-ai-url-cancel"
+            class="text-slate-400 hover:text-white text-xs px-2 py-1.5 rounded-lg transition-colors hover:bg-white/10">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- テキスト入力エリア -->
+      <div class="px-4 pb-4 pt-2" style="border-top: 1px solid rgba(255,255,255,0.08);">
+        <textarea id="ai-chat-input"
+          rows="3"
+          placeholder="面接メモ・求人票のテキスト・気になった情報など何でも入力..."
+          class="w-full bg-white/8 border border-white/10 rounded-xl px-3 py-2.5
+                 text-white text-sm placeholder-slate-500 resize-none
+                 focus:outline-none focus:ring-1 focus:ring-violet-400
+                 transition-colors"
+          style="background: rgba(255,255,255,0.06);"></textarea>
+
+        <!-- ツールバー -->
+        <div class="flex items-center justify-between mt-2.5">
+          <div class="flex gap-1.5">
+            <!-- ファイル添付ボタン -->
+            <button id="btn-ai-attach"
+              title="ファイルを添付（画像・PDF・Word・Excel）"
+              class="ai-tool-btn w-8 h-8 rounded-lg flex items-center justify-center
+                     text-slate-400 hover:text-white transition-all text-base">
+              📎
+            </button>
+            <!-- URL追加ボタン -->
+            <button id="btn-ai-url-toggle"
+              title="URLを追加"
+              class="ai-tool-btn w-8 h-8 rounded-lg flex items-center justify-center
+                     text-slate-400 hover:text-white transition-all text-sm font-mono">
+              🔗
+            </button>
+          </div>
+
+          <!-- 送信ボタン -->
+          <button id="btn-ai-send"
+            class="ai-send-btn flex items-center gap-1.5 px-4 py-1.5 rounded-xl
+                   text-white text-sm font-medium transition-all
+                   disabled:opacity-40 disabled:cursor-not-allowed">
+            <span id="ai-send-label">送信</span>
+            <span class="text-base">▶</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ファイル選択 input（非表示） -->
+  <input type="file" id="ai-file-input" class="hidden" multiple
+    accept="image/*,.pdf,.docx,.doc,.xlsx,.xls">
+
   <script src="/static/js/app.js"></script>
 </body>
 </html>
