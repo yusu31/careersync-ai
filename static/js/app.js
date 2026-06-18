@@ -1484,160 +1484,254 @@ document.getElementById('btn-tab-rank').addEventListener('click',  () => switchC
 
 // ── ランキングタブ ────────────────────────────────────────────────────────────
 
-function renderRanking() {
-  const grid = document.getElementById('ranking-grid');
-  if (!grid) return;
+// 10を超えるスコアは100点満点と判断して /10 に正規化
+function normalizeScore10(v) {
+  if (v == null || v < 0) return null;
+  return v > 10 ? Math.round(v / 10 * 10) / 10 : v;
+}
 
-  const companies = state.companies;
-  const mode = selectedCommuteMode;
+// スコアをパーセント表示に変換（例: 8 → "80%"、8.8 → "88%"）
+function scorePct(v) {
+  const n = normalizeScore10(v);
+  return n != null ? `${Math.round(n * 10)}%` : null;
+}
 
-  // 7つのランキング軸定義
-  const axes = [
+// 現在選択中のランキング軸
+let rankingActiveKey = 'hiring';
+
+function buildRankingAxes(mode) {
+  return [
     {
       key:   'hiring',
       label: '採用しやすさ',
       emoji: '🎯',
-      desc:  'AIが推定した採用可能性スコア（高いほど内定が出やすい）',
-      score: c => c.hiring_probability_score ?? -1,
-      fmt:   v => v > 0 ? `${v} / 10` : '—',
-      higher: true,
+      desc:  'AIが推定した採用可能性スコア。高いほど内定が出やすい。',
+      score: c => normalizeScore10(c.hiring_probability_score) ?? -1,
+      detail: c => {
+        const pct = scorePct(c.hiring_probability_score);
+        const lines = [];
+        if (pct != null) lines.push(`採用可能性: ${pct}`);
+        lines.push(c.inexperienced_ok ? '✓ 未経験者OK' : '未経験者枠: なし');
+        if (c.training_program) {
+          const t = c.training_program.length > 50 ? c.training_program.slice(0, 50) + '…' : c.training_program;
+          lines.push(`研修: ${t}`);
+        }
+        return lines;
+      },
     },
     {
       key:   'salary',
       label: '初年度給与',
       emoji: '💴',
-      desc:  '転職直後の予想年収（高いほど上位）',
+      desc:  '転職直後の予想年収。高いほど上位。',
       score: c => c.expected_first_salary ?? -1,
-      fmt:   v => v > 0 ? `${v}万円` : '—',
-      higher: true,
+      detail: c => {
+        const lines = [];
+        if (c.expected_first_salary) lines.push(`予想初年収: ${c.expected_first_salary}万円`);
+        if (c.salary)                lines.push(`年収レンジ: ${c.salary}`);
+        if (c.years_to_recover)      lines.push(`現年収600万に戻るまで: 約${c.years_to_recover}年`);
+        return lines;
+      },
     },
     {
       key:   'salary_upper',
       label: '年収ポテンシャル',
       emoji: '📈',
-      desc:  '将来的に到達できる年収の上限目安（高いほど上位）',
+      desc:  '将来的に到達できる年収の上限目安。高いほど上位。',
       score: c => c.salary_upper ?? -1,
-      fmt:   v => v > 0 ? `${v}万円` : '—',
-      higher: true,
+      detail: c => {
+        const lines = [];
+        if (c.salary_upper)          lines.push(`年収上限: ${c.salary_upper}万円`);
+        if (c.salary)                lines.push(`年収レンジ: ${c.salary}`);
+        if (c.expected_first_salary) lines.push(`入社直後の予想年収: ${c.expected_first_salary}万円`);
+        return lines;
+      },
     },
     {
       key:   'commute',
       label: '通勤距離（近い順）',
       emoji: '🚗',
-      desc:  `現在選択中の交通手段（${mode}）での距離が短い順`,
+      desc:  '選択中の交通手段で郡山からの距離が短い順。',
       score: c => {
         const d = parseJSON(c.commute_data)?.[mode]?.distance_km;
         return d != null ? -d : -99999;
       },
-      fmt: (_, c) => {
-        const km = parseJSON(c.commute_data)?.[mode]?.distance_km;
-        return km != null ? `${km} km` : '未算出';
+      detail: c => {
+        const cd = parseJSON(c.commute_data)?.[mode];
+        const lines = [];
+        if (cd) {
+          if (cd.distance_km != null) lines.push(`距離: ${cd.distance_km} km`);
+          if (cd.minutes     != null) lines.push(`通勤時間: ${cd.minutes}分`);
+          if (cd.cost)                lines.push(`交通費: ${cd.cost}`);
+        } else {
+          lines.push('通勤データ未算出（条件タブの「算出する」から実行可能）');
+        }
+        if (c.location) lines.push(`勤務地: ${c.location}`);
+        return lines;
       },
-      higher: true,
     },
     {
       key:   'wlb',
       label: 'ワークライフバランス',
       emoji: '😌',
-      desc:  '残業時間・有給消化率・AIのWLBスコアを総合（高いほど上位）',
+      desc:  '残業時間・有給消化率・AIのワークライフバランス評価を総合。',
       score: c => {
         const scores = parseJSON(c.scores);
-        const wlb  = scores?.work_life_balance ?? 5;
-        const ot   = c.overtime_hours != null ? Math.max(0, 10 - c.overtime_hours / 4) : 5;
-        const pl   = c.paid_leave_rate != null ? c.paid_leave_rate / 10 : 5;
+        const wlb = normalizeScore10(scores?.work_life_balance) ?? 5;
+        const ot  = c.overtime_hours  != null ? Math.max(0, 10 - c.overtime_hours / 4) : 5;
+        const pl  = c.paid_leave_rate != null ? c.paid_leave_rate / 10 : 5;
         return wlb * 0.5 + ot * 0.3 + pl * 0.2;
       },
-      fmt: (v, c) => {
+      detail: c => {
         const scores = parseJSON(c.scores);
-        const wlb = scores?.work_life_balance;
-        return wlb != null ? `スコア ${wlb} / 10` : '—';
+        const wlb = normalizeScore10(scores?.work_life_balance);
+        const lines = [];
+        if (wlb != null)                lines.push(`AIワークライフバランス評価: ${Math.round(wlb * 10)}%`);
+        if (c.overtime_hours  != null)  lines.push(`月平均残業: ${c.overtime_hours}時間`);
+        if (c.paid_leave_rate != null)  lines.push(`有給消化率: ${c.paid_leave_rate}%`);
+        if (c.work_style)               lines.push(`勤務形態: ${c.work_style}`);
+        return lines;
       },
-      higher: true,
     },
     {
       key:   'career',
       label: 'キャリアアップしやすさ',
       emoji: '🚀',
-      desc:  '技術成長・キャリア成長スコアの平均（高いほど上位）',
+      desc:  '技術成長・キャリア成長スコアの平均。高いほど上位。',
       score: c => {
-        const t = c.tech_growth_score   ?? -1;
-        const g = c.career_growth_score ?? -1;
+        const t = normalizeScore10(c.tech_growth_score)   ?? -1;
+        const g = normalizeScore10(c.career_growth_score) ?? -1;
         if (t < 0 && g < 0) return -1;
         const vals = [t, g].filter(v => v >= 0);
         return vals.reduce((a, b) => a + b, 0) / vals.length;
       },
-      fmt: (v, c) => {
-        const t = c.tech_growth_score;
-        const g = c.career_growth_score;
-        if (t == null && g == null) return '—';
-        return `技術 ${t ?? '?'} / キャリア ${g ?? '?'}`;
+      detail: c => {
+        const t = normalizeScore10(c.tech_growth_score);
+        const g = normalizeScore10(c.career_growth_score);
+        const lines = [];
+        if (t != null) lines.push(`技術が身につきやすさ: ${scorePct(c.tech_growth_score)}`);
+        if (g != null) lines.push(`キャリアが上がりやすさ: ${scorePct(c.career_growth_score)}`);
+        if (c.career_path) {
+          const short = c.career_path.length > 60 ? c.career_path.slice(0, 60) + '…' : c.career_path;
+          lines.push(`キャリアパス: ${short}`);
+        }
+        return lines;
       },
-      higher: true,
     },
     {
       key:   'total',
       label: '総合おすすめ（あなたに合う）',
       emoji: '⭐',
-      desc:  '採用確率・給与・ワークライフバランス・キャリア成長を総合した加重スコア',
+      desc:  '採用確率・給与・ワークライフバランス・キャリア成長の加重スコア。',
       score: c => {
         const scores = parseJSON(c.scores);
-        const h = c.hiring_probability_score ?? -1;
-        const s = parseJSON(c.scores)?.compensation ?? -1;
-        const w = scores?.work_life_balance ?? -1;
-        const t = c.tech_growth_score   ?? -1;
-        const g = c.career_growth_score ?? -1;
+        const h = normalizeScore10(c.hiring_probability_score) ?? -1;
+        const s = normalizeScore10(scores?.compensation)       ?? -1;
+        const w = normalizeScore10(scores?.work_life_balance)  ?? -1;
+        const t = normalizeScore10(c.tech_growth_score)        ?? -1;
+        const g = normalizeScore10(c.career_growth_score)      ?? -1;
         if ([h, s, w, t, g].every(v => v < 0)) return -1;
         const safe = v => v >= 0 ? v : 5;
         return safe(h) * 0.30 + safe(s) * 0.20 + safe(w) * 0.20
              + safe(t) * 0.15 + safe(g) * 0.15;
       },
-      fmt: v => v > 0 ? `${v.toFixed(1)} pt` : '—',
-      higher: true,
+      detail: c => {
+        const scores = parseJSON(c.scores);
+        const h = normalizeScore10(c.hiring_probability_score);
+        const s = normalizeScore10(scores?.compensation);
+        const w = normalizeScore10(scores?.work_life_balance);
+        const t = normalizeScore10(c.tech_growth_score);
+        const g = normalizeScore10(c.career_growth_score);
+        const lines = [];
+        if (h != null) lines.push(`採用可能性: ${scorePct(c.hiring_probability_score)}（ウェイト 30%）`);
+        if (s != null) lines.push(`給与評価: ${Math.round(s * 10)}%（ウェイト 20%）`);
+        if (w != null) lines.push(`ワークライフバランス: ${Math.round(w * 10)}%（ウェイト 20%）`);
+        if (t != null) lines.push(`技術成長: ${scorePct(c.tech_growth_score)}（ウェイト 15%）`);
+        if (g != null) lines.push(`キャリア成長: ${scorePct(c.career_growth_score)}（ウェイト 15%）`);
+        return lines;
+      },
     },
   ];
+}
 
-  const MEDALS = ['🥇', '🥈', '🥉'];
+function renderRanking() {
+  const axisList   = document.getElementById('ranking-axis-list');
+  const detailPane = document.getElementById('ranking-detail');
+  if (!axisList || !detailPane) return;
 
-  grid.innerHTML = axes.map(axis => {
-    const sorted = [...companies]
-      .map(c => ({ c, val: axis.score(c) }))
-      .filter(x => x.val > -1)
-      .sort((a, b) => b.val - a.val);
+  const axes = buildRankingAxes(selectedCommuteMode);
 
-    const rows = sorted.map((x, i) => {
-      const medal  = MEDALS[i] ?? `${i + 1}位`;
-      const label  = x.c.name || x.c.url;
-      const valStr = axis.fmt ? axis.fmt(x.val, x.c) : x.val;
-      const rowCls = i === 0
-        ? 'bg-yellow-50 border-yellow-200'
-        : i === 1 ? 'bg-gray-50 border-gray-200'
-        : i === 2 ? 'bg-orange-50 border-orange-200'
-        : 'bg-white border-gray-100';
-      return `
-        <div class="flex items-center gap-3 rounded-lg border ${rowCls} px-3 py-2 cursor-pointer hover:opacity-80 transition-opacity"
-             onclick="selectCompanyAndSwitchList(${x.c.id})">
-          <span class="text-lg w-7 flex-shrink-0 text-center">${medal}</span>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold text-gray-800 truncate">${label}</p>
-            <p class="text-xs text-gray-500">${valStr}</p>
-          </div>
-        </div>`;
-    }).join('');
+  // 左：軸セレクターボタンを生成
+  axisList.innerHTML = axes.map(axis => `
+    <button
+      class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2
+             ${rankingActiveKey === axis.key
+               ? 'bg-indigo-600 text-white shadow-sm'
+               : 'text-gray-600 hover:bg-gray-100'}"
+      onclick="switchRankingAxis('${axis.key}')">
+      <span class="text-base">${axis.emoji}</span>
+      <span class="leading-tight">${axis.label}</span>
+    </button>
+  `).join('');
 
-    const emptyNote = sorted.length === 0
-      ? '<p class="text-xs text-gray-400 mt-2">AI分析済みの企業がありません</p>'
-      : '';
+  // 右：詳細ランキングを描画
+  renderRankingDetail(axes);
+}
+
+function switchRankingAxis(key) {
+  rankingActiveKey = key;
+  renderRanking();
+}
+
+function renderRankingDetail(axes) {
+  const detailPane = document.getElementById('ranking-detail');
+  if (!detailPane) return;
+
+  const axis      = axes.find(a => a.key === rankingActiveKey) ?? axes[0];
+  const companies = state.companies;
+  const MEDALS    = ['🥇', '🥈', '🥉'];
+
+  const sorted = [...companies]
+    .map(c => ({ c, val: axis.score(c) }))
+    .filter(x => x.val > -1)
+    .sort((a, b) => b.val - a.val);
+
+  if (sorted.length === 0) {
+    detailPane.innerHTML = `
+      <div class="flex items-center justify-center h-48 text-sm text-gray-400 text-center">
+        AI分析済みの企業がありません。<br>企業を選択して「AI分析」を実行してください。
+      </div>`;
+    return;
+  }
+
+  const rows = sorted.map((x, i) => {
+    const medal   = MEDALS[i] ?? `${i + 1}位`;
+    const label   = x.c.name || x.c.url;
+    const details = axis.detail(x.c);
+    const bgCls   = i === 0 ? 'bg-yellow-50 border-yellow-300'
+                 : i === 1  ? 'bg-gray-50 border-gray-200'
+                 : i === 2  ? 'bg-orange-50 border-orange-300'
+                 :             'bg-white border-gray-200';
 
     return `
-      <div class="bg-white rounded-xl border border-gray-200 p-4">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-lg">${axis.emoji}</span>
-          <h3 class="text-sm font-bold text-gray-800">${axis.label}</h3>
+      <div class="rounded-xl border ${bgCls} p-4 cursor-pointer hover:shadow-sm transition-shadow"
+           onclick="selectCompanyAndSwitchList(${x.c.id})">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-2xl w-8 flex-shrink-0 text-center">${medal}</span>
+          <span class="font-bold text-gray-800">${label}</span>
         </div>
-        <p class="text-xs text-gray-400 mb-3">${axis.desc}</p>
-        <div class="space-y-2">${rows}${emptyNote}</div>
+        <ul class="ml-11 space-y-0.5">
+          ${details.map(d => `<li class="text-xs text-gray-600">• ${d}</li>`).join('')}
+        </ul>
       </div>`;
   }).join('');
+
+  detailPane.innerHTML = `
+    <div class="mb-4">
+      <h3 class="text-base font-bold text-gray-800">${axis.emoji} ${axis.label}</h3>
+      <p class="text-xs text-gray-400 mt-0.5">${axis.desc}</p>
+    </div>
+    <div class="space-y-3">${rows}</div>`;
 }
 
 // ── 共通ユーティリティ ──────────────────────────────────────────────────────
