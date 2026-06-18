@@ -748,11 +748,19 @@ async function calcCommuteAuto(companyId) {
 
 // カード外クリックでドロップダウンを閉じる
 document.addEventListener('click', e => {
+  // 通勤ポータルを外クリックで閉じる
   const portal = document.getElementById('commute-portal');
-  if (!portal) return;
-  const cardId = portal.dataset.forId;
-  const card = document.getElementById(`commute-grid-card-${cardId}`);
-  if (!portal.contains(e.target) && !card?.contains(e.target)) closeCommutePortal();
+  if (portal) {
+    const cardId = portal.dataset.forId;
+    const card = document.getElementById(`commute-grid-card-${cardId}`);
+    if (!portal.contains(e.target) && !card?.contains(e.target)) closeCommutePortal();
+  }
+  // クイックメニューを外クリックで閉じる
+  const menu = document.getElementById('ai-quick-menu');
+  const bubble = document.getElementById('btn-ai-bubble');
+  if (menu && !menu.contains(e.target) && !bubble.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
 });
 
 // ── 求人元カード（詳細パネル用）──────────────────────────────────────────
@@ -1033,7 +1041,6 @@ function setImage(file) {
 }
 
 // ボタン・モーダル開閉
-document.getElementById('btn-add-schedule-image').addEventListener('click', openScheduleModal);
 document.getElementById('btn-close-schedule-modal').addEventListener('click', closeScheduleModal);
 document.getElementById('btn-cancel-schedule-modal').addEventListener('click', closeScheduleModal);
 document.getElementById('btn-back-to-paste').addEventListener('click', showPasteStep);
@@ -1771,7 +1778,7 @@ function switchView(mode) {
     btnList.classList.add('bg-white', 'text-gray-500');
     btnCompare.classList.add('bg-indigo-600', 'text-white');
     btnCompare.classList.remove('bg-white', 'text-gray-500');
-    if (bubble) bubble.classList.add('hidden');
+    // 比較モードでもバブルは常時表示（一括取り込み機能のため）
     // アクティブなタブを再描画
     if (compareState.tab === 'cond') renderComparisonConditions();
     else if (compareState.tab === 'rank') renderRanking();
@@ -1784,7 +1791,7 @@ function switchView(mode) {
     btnList.classList.remove('bg-white', 'text-gray-500');
     btnCompare.classList.remove('bg-indigo-600', 'text-white');
     btnCompare.classList.add('bg-white', 'text-gray-500');
-    if (bubble && state.selectedId) bubble.classList.remove('hidden');
+    // バブルは常時表示のため非表示→表示の制御は不要
   }
 }
 
@@ -1805,9 +1812,7 @@ const chatState = {
 // ── バブル表示・非表示 ──────────────────────────────────────────────────────
 
 function showAiBubble(companyName) {
-  const bubble = document.getElementById('btn-ai-bubble');
-  bubble.classList.remove('hidden', 'morphing');
-  bubble.classList.add('idle');
+  // ✦ ボタンは常時表示のためここでは company name の更新のみ行う
   document.getElementById('ai-panel-company-name').textContent = companyName;
 }
 
@@ -1833,7 +1838,25 @@ function closeAiPanel() {
   }, 280);
 }
 
-document.getElementById('btn-ai-bubble').addEventListener('click', openAiPanel);
+// ✦ ボタン → クイックメニューを開閉する
+document.getElementById('btn-ai-bubble').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('ai-quick-menu').classList.toggle('hidden');
+});
+
+document.getElementById('btn-qm-chat').addEventListener('click', () => {
+  document.getElementById('ai-quick-menu').classList.add('hidden');
+  if (!state.selectedId) {
+    showToast('企業を選んでからご利用ください', 'warning');
+    return;
+  }
+  openAiPanel();
+});
+
+document.getElementById('btn-qm-bulk').addEventListener('click', () => {
+  document.getElementById('ai-quick-menu').classList.add('hidden');
+  openBulkImportModal();
+});
 document.getElementById('btn-ai-panel-close').addEventListener('click', closeAiPanel);
 document.getElementById('ai-panel-overlay').addEventListener('click', closeAiPanel);
 
@@ -2101,3 +2124,161 @@ async function sendToAI() {
     filesSnapshot.forEach(f => { if (f.previewUrl) URL.revokeObjectURL(f.previewUrl); });
   }
 }
+
+// ── ファイル一括取り込みモーダル ───────────────────────────────────────────
+
+let bulkFiles = [];
+let bulkExtracted = [];
+
+function openBulkImportModal() {
+  bulkFiles = [];
+  bulkExtracted = [];
+  _bulkShowStep('upload');
+  _bulkRenderFileList();
+  document.getElementById('bulk-file-input').value = '';
+  document.getElementById('modal-bulk-import').classList.remove('hidden');
+}
+
+function closeBulkImportModal() {
+  document.getElementById('modal-bulk-import').classList.add('hidden');
+}
+
+function _bulkShowStep(step) {
+  ['upload', 'loading', 'preview', 'done'].forEach(s => {
+    document.getElementById(`bulk-step-${s}`).classList.add('hidden');
+  });
+  document.getElementById(`bulk-step-${step}`).classList.remove('hidden');
+}
+
+function _bulkRenderFileList() {
+  const list = document.getElementById('bulk-file-list');
+  const btn = document.getElementById('btn-bulk-extract');
+  if (bulkFiles.length === 0) {
+    list.classList.add('hidden');
+    btn.disabled = true;
+    return;
+  }
+  list.classList.remove('hidden');
+  list.innerHTML = bulkFiles.map((f, i) => `
+    <li class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+      <span class="text-xs text-gray-700 truncate max-w-xs">${f.name}</span>
+      <button onclick="bulkRemoveFile(${i})" class="text-gray-400 hover:text-red-400 text-sm ml-2">✕</button>
+    </li>
+  `).join('');
+  btn.disabled = false;
+}
+
+window.bulkRemoveFile = function(index) {
+  bulkFiles.splice(index, 1);
+  _bulkRenderFileList();
+};
+
+// ドロップゾーン
+const bulkDropZone = document.getElementById('bulk-drop-zone');
+bulkDropZone.addEventListener('click', () => document.getElementById('bulk-file-input').click());
+bulkDropZone.addEventListener('dragover', e => { e.preventDefault(); bulkDropZone.classList.add('border-indigo-500', 'bg-indigo-50'); });
+bulkDropZone.addEventListener('dragleave', () => bulkDropZone.classList.remove('border-indigo-500', 'bg-indigo-50'));
+bulkDropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  bulkDropZone.classList.remove('border-indigo-500', 'bg-indigo-50');
+  bulkFiles.push(...Array.from(e.dataTransfer.files));
+  _bulkRenderFileList();
+});
+
+document.getElementById('bulk-file-input').addEventListener('change', e => {
+  bulkFiles.push(...Array.from(e.target.files || []));
+  _bulkRenderFileList();
+});
+
+// 解析開始
+document.getElementById('btn-bulk-extract').addEventListener('click', async () => {
+  if (!bulkFiles.length) return;
+  _bulkShowStep('loading');
+
+  const fd = new FormData();
+  bulkFiles.forEach(f => fd.append('files', f));
+
+  try {
+    const res = await fetch('/api/bulk-import/preview', { method: 'POST', body: fd });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '解析に失敗しました');
+    }
+    const data = await res.json();
+    bulkExtracted = data.companies || [];
+    _bulkRenderPreview();
+  } catch (err) {
+    _bulkShowStep('upload');
+    showToast(`エラー: ${err.message}`, 'error');
+  }
+});
+
+function _bulkRenderPreview() {
+  if (!bulkExtracted.length) {
+    _bulkShowStep('upload');
+    showToast('企業情報が見つかりませんでした', 'warning');
+    return;
+  }
+
+  const newCount = bulkExtracted.filter(c => c.status === 'new').length;
+  const updateCount = bulkExtracted.filter(c => c.status === 'update').length;
+  document.getElementById('bulk-preview-summary').textContent =
+    `抽出結果 ${bulkExtracted.length} 社（新規 ${newCount} 社・更新 ${updateCount} 社）`;
+
+  document.getElementById('bulk-preview-list').innerHTML = bulkExtracted.map((c, i) => `
+    <li class="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
+      <input type="checkbox" id="bulk-chk-${i}" checked class="mt-0.5 accent-indigo-600 flex-shrink-0">
+      <label for="bulk-chk-${i}" class="flex-1 cursor-pointer">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs font-bold ${c.status === 'update' ? 'text-amber-600' : 'text-green-600'}">
+            ${c.status === 'update' ? '🔄 更新' : '🆕 新規'}
+          </span>
+          <span class="text-sm font-medium text-gray-800">${c.name || '（企業名不明）'}</span>
+          ${c.status === 'update' ? `<span class="text-xs text-gray-400">← ${c.existing_name}</span>` : ''}
+        </div>
+        <div class="text-xs text-gray-400 mt-0.5 flex gap-3 flex-wrap">
+          ${c.industry ? `<span>${c.industry}</span>` : ''}
+          ${c.location ? `<span>${c.location}</span>` : ''}
+          ${c.salary ? `<span>${c.salary}</span>` : ''}
+        </div>
+      </label>
+    </li>
+  `).join('');
+
+  _bulkShowStep('preview');
+}
+
+// 登録する
+document.getElementById('btn-bulk-register').addEventListener('click', async () => {
+  const selected = bulkExtracted.filter((_, i) =>
+    document.getElementById(`bulk-chk-${i}`)?.checked
+  );
+  if (!selected.length) {
+    showToast('登録する企業を選択してください', 'warning');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/bulk-import/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companies: selected }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '登録に失敗しました');
+    const result = await res.json();
+    document.getElementById('bulk-done-text').textContent =
+      `${result.inserted} 社を新規登録・${result.updated} 社を更新しました`;
+    _bulkShowStep('done');
+    await init();
+  } catch (err) {
+    showToast(`登録エラー: ${err.message}`, 'error');
+  }
+});
+
+// 戻る / 閉じる
+document.getElementById('btn-bulk-back').addEventListener('click', () => _bulkShowStep('upload'));
+document.getElementById('btn-close-bulk-modal').addEventListener('click', closeBulkImportModal);
+document.getElementById('btn-bulk-close-done').addEventListener('click', closeBulkImportModal);
+document.getElementById('modal-bulk-import').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeBulkImportModal();
+});

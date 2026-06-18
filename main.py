@@ -23,6 +23,7 @@ from services.ai_analyst import analyze_company
 from services.schedule_extractor import extract_schedule_from_image
 from services.info_supplement import supplement, UploadedFile, _EXT_TO_MIME
 from services.commute_calculator import estimate_commute
+from services.ai_bulk_import import extract_companies, BulkFile
 
 
 # ─────────────────────────────────────────────
@@ -731,6 +732,157 @@ async def calc_commute(company_id: int):
 
 class JobSourcesUpdate(BaseModel):
     job_sources: list[str]
+
+
+class BulkCompanyItem(BaseModel):
+    name: Optional[str] = None
+    url: Optional[str] = None
+    job_url: Optional[str] = None
+    industry: Optional[str] = None
+    location: Optional[str] = None
+    salary: Optional[str] = None
+    work_style: Optional[str] = None
+    employees: Optional[str] = None
+    development_type: Optional[str] = None
+    inexperienced_ok: Optional[int] = None
+    notes: Optional[str] = None
+    existing_id: Optional[int] = None  # 設定時は既存企業とマージ
+
+
+class BulkImportRegister(BaseModel):
+    companies: list[BulkCompanyItem]
+
+# ─────────────────────────────────────────────
+# ファイル一括取り込み API
+# ─────────────────────────────────────────────
+
+_BULK_EXT_TO_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xls": "application/vnd.ms-excel",
+    ".csv": "text/csv",
+}
+
+# ファイル一括取り込みで更新を許可するカラム
+_BULK_VALID_COLUMNS = {
+    "name", "industry", "employees", "location", "work_style",
+    "salary", "development_type", "inexperienced_ok", "notes",
+    "job_url",
+}
+
+
+@app.post("/api/bulk-import/preview", tags=["ai"])
+async def bulk_import_preview(files: list[UploadFile] = File(...)):
+    """
+    ファイルから企業を抽出し、重複チェック付きのプレビューを返す。DBへの保存は行わない。
+
+    各企業に status（"new" or "update"）と existing_id を付与して返す。
+    """
+    bulk_files: list[BulkFile] = []
+    for f in files:
+        if not f.filename:
+            continue
+        ext = ("." + f.filename.rsplit(".", 1)[-1].lower()) if "." in f.filename else ""
+        mime = f.content_type or _BULK_EXT_TO_MIME.get(ext, "application/octet-stream")
+        content = await f.read()
+        bulk_files.append(BulkFile(filename=f.filename, content=content, mime_type=mime))
+
+    if not bulk_files:
+        raise HTTPException(status_code=400, detail="ファイルが添付されていません")
+
+    try:
+        extracted = extract_companies(bulk_files)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI解析に失敗しました: {str(e)}")
+
+    if not extracted:
+        return {"companies": []}
+
+    # 重複チェック（URL一致 → 社名一致 の順で検索）
+    conn = get_connection()
+    try:
+        for company in extracted:
+            existing = None
+            if company.get("url"):
+                existing = conn.execute(
+                    "SELECT id, name FROM companies WHERE url = ?", (company["url"],)
+                ).fetchone()
+            if not existing and company.get("name"):
+                existing = conn.execute(
+                    "SELECT id, name FROM companies WHERE name = ?", (company["name"],)
+                ).fetchone()
+
+            company["status"] = "update" if existing else "new"
+            company["existing_id"] = existing["id"] if existing else None
+            company["existing_name"] = existing["name"] if existing else None
+    finally:
+        conn.close()
+
+    return {"companies": extracted}
+
+
+@app.post("/api/bulk-import/register", tags=["ai"])
+async def bulk_import_register(body: BulkImportRegister):
+    """
+    プレビューで確認済みの企業リストを登録・マージする。
+
+    - existing_id なし → 新規 INSERT
+    - existing_id あり → 既存企業に非 null フィールドをマージ PATCH
+    """
+    inserted, updated = 0, 0
+    conn = get_connection()
+    try:
+        for item in body.companies:
+            data = {k: v for k, v in item.model_dump().items()
+                    if v is not None and k in _BULK_VALID_COLUMNS}
+
+            if item.existing_id:
+                # 既存企業：現在 null のフィールドのみ上書きする
+                existing_row = conn.execute(
+                    "SELECT * FROM companies WHERE id = ?", (item.existing_id,)
+                ).fetchone()
+                if existing_row:
+                    merge = {k: v for k, v in data.items()
+                             if existing_row[k] is None}
+                    if merge:
+                        set_clause = ", ".join(f"{col} = ?" for col in merge)
+                        conn.execute(
+                            f"UPDATE companies SET {set_clause} WHERE id = ?",
+                            list(merge.values()) + [item.existing_id],
+                        )
+                    updated += 1
+            else:
+                # 新規登録
+                url = item.url or f"unknown-{item.name or 'company'}"
+                conn.execute(
+                    """INSERT INTO companies (url, name, job_url, industry, location,
+                       salary, work_style, employees, development_type, inexperienced_ok, notes)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        url,
+                        item.name,
+                        item.job_url,
+                        item.industry,
+                        item.location,
+                        item.salary,
+                        item.work_style,
+                        item.employees,
+                        item.development_type,
+                        item.inexperienced_ok,
+                        item.notes,
+                    ),
+                )
+                inserted += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"inserted": inserted, "updated": updated}
+
 
 @app.patch("/api/companies/{company_id}/sources", tags=["companies"])
 async def update_job_sources(company_id: int, body: JobSourcesUpdate):
