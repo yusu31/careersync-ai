@@ -80,6 +80,10 @@
             class="compare-tab-btn px-4 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition-colors whitespace-nowrap">
             条件
           </button>
+          <button id="btn-tab-rank"
+            class="compare-tab-btn px-4 py-1.5 bg-white text-gray-500 hover:bg-gray-50 transition-colors whitespace-nowrap">
+            ランキング
+          </button>
         </div>
       </div>
 
@@ -101,7 +105,7 @@
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="growth">成長性 <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="stability">安定性 <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="culture_fit">カルチャー <span class="sort-icon text-gray-300">↕</span></th>
-                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_life_balance">WLB <span class="sort-icon text-gray-300">↕</span></th>
+                  <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="work_life_balance">ワークライフバランス <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="compensation">給与評価 <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="tech">技術成長 <span class="sort-icon text-gray-300">↕</span></th>
                   <th class="sort-th text-center px-3 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer select-none" data-col="career">キャリア <span class="sort-icon text-gray-300">↕</span></th>
@@ -150,6 +154,12 @@
             </table>
           </div>
         </div>
+      </div>
+
+      <!-- ── ランキングタブ ── -->
+      <div id="compare-tab-rank" class="hidden">
+        <p class="text-xs text-gray-400 mb-4">AI分析済みの企業を7つの軸でランキング。🥇🥈🥉 はその軸での上位3社。</p>
+        <div id="ranking-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </div>
 
     </section>

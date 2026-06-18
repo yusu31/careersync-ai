@@ -259,6 +259,13 @@ function renderAnalysisSection(c, scores, sw, strategy, skillStack) {
       <p class="text-sm text-gray-600 leading-relaxed">${c.summary}</p>
     </div>` : ''}
 
+    <!-- 初心者向け業務説明 -->
+    ${c.beginner_description ? `
+    <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 mb-4">
+      <h3 class="text-sm font-semibold text-blue-700 mb-2">👶 実際に毎日何をするの？（未経験者向け）</h3>
+      <p class="text-sm text-blue-900 leading-relaxed">${c.beginner_description}</p>
+    </div>` : ''}
+
     <!-- スコアエリア -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
       <!-- レーダーチャート -->
@@ -381,7 +388,7 @@ function renderRadar(scores) {
   state.radarChart = new Chart(ctx, {
     type: 'radar',
     data: {
-      labels: ['成長性', '安定性', 'カルチャー', 'WLB', '待遇'],
+      labels: ['成長性', '安定性', 'カルチャー', 'ワークライフバランス', '待遇'],
       datasets: [{
         data: [
           scores.growth           || 0,
@@ -1442,33 +1449,196 @@ document.querySelectorAll('.sort-th-c').forEach(th => {
 // ── タブ切り替え ────────────────────────────────────────────────────────────
 
 function switchCompareTab(tab) {
-  const scorePanel = document.getElementById('compare-tab-score');
-  const condPanel  = document.getElementById('compare-tab-cond');
-  const btnScore   = document.getElementById('btn-tab-score');
-  const btnCond    = document.getElementById('btn-tab-cond');
+  const panels = {
+    score: document.getElementById('compare-tab-score'),
+    cond:  document.getElementById('compare-tab-cond'),
+    rank:  document.getElementById('compare-tab-rank'),
+  };
+  const btns = {
+    score: document.getElementById('btn-tab-score'),
+    cond:  document.getElementById('btn-tab-cond'),
+    rank:  document.getElementById('btn-tab-rank'),
+  };
 
   compareState.tab = tab;
-  if (tab === 'score') {
-    scorePanel.classList.remove('hidden');
-    condPanel.classList.add('hidden');
-    btnScore.classList.add('bg-indigo-600', 'text-white');
-    btnScore.classList.remove('bg-white', 'text-gray-500');
-    btnCond.classList.remove('bg-indigo-600', 'text-white');
-    btnCond.classList.add('bg-white', 'text-gray-500');
-    renderComparison();
-  } else {
-    condPanel.classList.remove('hidden');
-    scorePanel.classList.add('hidden');
-    btnCond.classList.add('bg-indigo-600', 'text-white');
-    btnCond.classList.remove('bg-white', 'text-gray-500');
-    btnScore.classList.remove('bg-indigo-600', 'text-white');
-    btnScore.classList.add('bg-white', 'text-gray-500');
-    renderComparisonConditions();
-  }
+
+  Object.keys(panels).forEach(key => {
+    panels[key].classList.toggle('hidden', key !== tab);
+    if (key === tab) {
+      btns[key].classList.add('bg-indigo-600', 'text-white');
+      btns[key].classList.remove('bg-white', 'text-gray-500');
+    } else {
+      btns[key].classList.remove('bg-indigo-600', 'text-white');
+      btns[key].classList.add('bg-white', 'text-gray-500');
+    }
+  });
+
+  if (tab === 'score') renderComparison();
+  else if (tab === 'cond') renderComparisonConditions();
+  else if (tab === 'rank') renderRanking();
 }
 
 document.getElementById('btn-tab-score').addEventListener('click', () => switchCompareTab('score'));
 document.getElementById('btn-tab-cond').addEventListener('click',  () => switchCompareTab('cond'));
+document.getElementById('btn-tab-rank').addEventListener('click',  () => switchCompareTab('rank'));
+
+// ── ランキングタブ ────────────────────────────────────────────────────────────
+
+function renderRanking() {
+  const grid = document.getElementById('ranking-grid');
+  if (!grid) return;
+
+  const companies = state.companies;
+  const mode = selectedCommuteMode;
+
+  // 7つのランキング軸定義
+  const axes = [
+    {
+      key:   'hiring',
+      label: '採用しやすさ',
+      emoji: '🎯',
+      desc:  'AIが推定した採用可能性スコア（高いほど内定が出やすい）',
+      score: c => c.hiring_probability_score ?? -1,
+      fmt:   v => v > 0 ? `${v} / 10` : '—',
+      higher: true,
+    },
+    {
+      key:   'salary',
+      label: '初年度給与',
+      emoji: '💴',
+      desc:  '転職直後の予想年収（高いほど上位）',
+      score: c => c.expected_first_salary ?? -1,
+      fmt:   v => v > 0 ? `${v}万円` : '—',
+      higher: true,
+    },
+    {
+      key:   'salary_upper',
+      label: '年収ポテンシャル',
+      emoji: '📈',
+      desc:  '将来的に到達できる年収の上限目安（高いほど上位）',
+      score: c => c.salary_upper ?? -1,
+      fmt:   v => v > 0 ? `${v}万円` : '—',
+      higher: true,
+    },
+    {
+      key:   'commute',
+      label: '通勤距離（近い順）',
+      emoji: '🚗',
+      desc:  `現在選択中の交通手段（${mode}）での距離が短い順`,
+      score: c => {
+        const d = parseJSON(c.commute_data)?.[mode]?.distance_km;
+        return d != null ? -d : -99999;
+      },
+      fmt: (_, c) => {
+        const km = parseJSON(c.commute_data)?.[mode]?.distance_km;
+        return km != null ? `${km} km` : '未算出';
+      },
+      higher: true,
+    },
+    {
+      key:   'wlb',
+      label: 'ワークライフバランス',
+      emoji: '😌',
+      desc:  '残業時間・有給消化率・AIのWLBスコアを総合（高いほど上位）',
+      score: c => {
+        const scores = parseJSON(c.scores);
+        const wlb  = scores?.work_life_balance ?? 5;
+        const ot   = c.overtime_hours != null ? Math.max(0, 10 - c.overtime_hours / 4) : 5;
+        const pl   = c.paid_leave_rate != null ? c.paid_leave_rate / 10 : 5;
+        return wlb * 0.5 + ot * 0.3 + pl * 0.2;
+      },
+      fmt: (v, c) => {
+        const scores = parseJSON(c.scores);
+        const wlb = scores?.work_life_balance;
+        return wlb != null ? `スコア ${wlb} / 10` : '—';
+      },
+      higher: true,
+    },
+    {
+      key:   'career',
+      label: 'キャリアアップしやすさ',
+      emoji: '🚀',
+      desc:  '技術成長・キャリア成長スコアの平均（高いほど上位）',
+      score: c => {
+        const t = c.tech_growth_score   ?? -1;
+        const g = c.career_growth_score ?? -1;
+        if (t < 0 && g < 0) return -1;
+        const vals = [t, g].filter(v => v >= 0);
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
+      },
+      fmt: (v, c) => {
+        const t = c.tech_growth_score;
+        const g = c.career_growth_score;
+        if (t == null && g == null) return '—';
+        return `技術 ${t ?? '?'} / キャリア ${g ?? '?'}`;
+      },
+      higher: true,
+    },
+    {
+      key:   'total',
+      label: '総合おすすめ（あなたに合う）',
+      emoji: '⭐',
+      desc:  '採用確率・給与・ワークライフバランス・キャリア成長を総合した加重スコア',
+      score: c => {
+        const scores = parseJSON(c.scores);
+        const h = c.hiring_probability_score ?? -1;
+        const s = parseJSON(c.scores)?.compensation ?? -1;
+        const w = scores?.work_life_balance ?? -1;
+        const t = c.tech_growth_score   ?? -1;
+        const g = c.career_growth_score ?? -1;
+        if ([h, s, w, t, g].every(v => v < 0)) return -1;
+        const safe = v => v >= 0 ? v : 5;
+        return safe(h) * 0.30 + safe(s) * 0.20 + safe(w) * 0.20
+             + safe(t) * 0.15 + safe(g) * 0.15;
+      },
+      fmt: v => v > 0 ? `${v.toFixed(1)} pt` : '—',
+      higher: true,
+    },
+  ];
+
+  const MEDALS = ['🥇', '🥈', '🥉'];
+
+  grid.innerHTML = axes.map(axis => {
+    const sorted = [...companies]
+      .map(c => ({ c, val: axis.score(c) }))
+      .filter(x => x.val > -1)
+      .sort((a, b) => b.val - a.val);
+
+    const rows = sorted.map((x, i) => {
+      const medal  = MEDALS[i] ?? `${i + 1}位`;
+      const label  = x.c.name || x.c.url;
+      const valStr = axis.fmt ? axis.fmt(x.val, x.c) : x.val;
+      const rowCls = i === 0
+        ? 'bg-yellow-50 border-yellow-200'
+        : i === 1 ? 'bg-gray-50 border-gray-200'
+        : i === 2 ? 'bg-orange-50 border-orange-200'
+        : 'bg-white border-gray-100';
+      return `
+        <div class="flex items-center gap-3 rounded-lg border ${rowCls} px-3 py-2 cursor-pointer hover:opacity-80 transition-opacity"
+             onclick="selectCompanyAndSwitchList(${x.c.id})">
+          <span class="text-lg w-7 flex-shrink-0 text-center">${medal}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-gray-800 truncate">${label}</p>
+            <p class="text-xs text-gray-500">${valStr}</p>
+          </div>
+        </div>`;
+    }).join('');
+
+    const emptyNote = sorted.length === 0
+      ? '<p class="text-xs text-gray-400 mt-2">AI分析済みの企業がありません</p>'
+      : '';
+
+    return `
+      <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-lg">${axis.emoji}</span>
+          <h3 class="text-sm font-bold text-gray-800">${axis.label}</h3>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">${axis.desc}</p>
+        <div class="space-y-2">${rows}${emptyNote}</div>
+      </div>`;
+  }).join('');
+}
 
 // ── 共通ユーティリティ ──────────────────────────────────────────────────────
 
@@ -1510,6 +1680,7 @@ function switchView(mode) {
     if (bubble) bubble.classList.add('hidden');
     // アクティブなタブを再描画
     if (compareState.tab === 'cond') renderComparisonConditions();
+    else if (compareState.tab === 'rank') renderRanking();
     else renderComparison();
   } else {
     sidebar.classList.remove('hidden');

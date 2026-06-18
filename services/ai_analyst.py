@@ -109,6 +109,7 @@ def _build_prompt(url: str, scraped_text: str, user_profile: dict) -> str:
   "career_path": "想定キャリアの道筋（2〜3行）",
   "benefits": "福利厚生まとめ（文字列）",
   "qualification_support": "資格補助・支援制度（例: 応用情報・AWS・G検定 費用全額支給、など。不明ならnull）",
+  "beginner_description": "IT未経験者向けに『この会社では毎日具体的に何をするのか』を小学生でもわかる平易な言葉で3〜5行で説明。専門用語は使わず、使う場合はカッコ内で簡単に補足すること。例: 『チームで話し合いながら、会社の業務をラクにするソフトウェアを作ります。毎朝10分の朝会で今日やることを共有し、午前中はコード（コンピューターへの命令文）を書き、午後はテスト（動作確認）をする、という流れが多いです』",
   "summary": "事業概要（3〜5行）",
   "strengths_weaknesses": {{
     "strengths": ["強み1", "強み2", "強み3"],

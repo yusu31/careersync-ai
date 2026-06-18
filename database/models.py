@@ -131,6 +131,7 @@ def init_db() -> None:
             ("job_sources",           "TEXT DEFAULT '[]'"),  # 求人元タグ JSON配列
             ("commute_data",          "TEXT"),                # 通勤データ JSON (車/新幹線/電車)
             ("qualification_support", "TEXT"),                # 資格補助・支援制度
+            ("beginner_description",  "TEXT"),                # 初心者向け業務説明（AI生成）
         ])
 
         print("[OK] データベースの初期化が完了しました")
