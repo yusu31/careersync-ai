@@ -1490,6 +1490,12 @@ function normalizeScore10(v) {
   return v > 10 ? Math.round(v / 10 * 10) / 10 : v;
 }
 
+// スコアをパーセント表示に変換（例: 8 → "80%"、8.8 → "88%"）
+function scorePct(v) {
+  const n = normalizeScore10(v);
+  return n != null ? `${Math.round(n * 10)}%` : null;
+}
+
 // 現在選択中のランキング軸
 let rankingActiveKey = 'hiring';
 
@@ -1502,9 +1508,9 @@ function buildRankingAxes(mode) {
       desc:  'AIが推定した採用可能性スコア。高いほど内定が出やすい。',
       score: c => normalizeScore10(c.hiring_probability_score) ?? -1,
       detail: c => {
-        const score = normalizeScore10(c.hiring_probability_score);
+        const pct = scorePct(c.hiring_probability_score);
         const lines = [];
-        if (score != null) lines.push(`採用可能性スコア: ${score} / 10`);
+        if (pct != null) lines.push(`採用可能性: ${pct}`);
         lines.push(c.inexperienced_ok ? '✓ 未経験者OK' : '未経験者枠: なし');
         if (c.training_program) {
           const t = c.training_program.length > 50 ? c.training_program.slice(0, 50) + '…' : c.training_program;
@@ -1580,7 +1586,7 @@ function buildRankingAxes(mode) {
         const scores = parseJSON(c.scores);
         const wlb = normalizeScore10(scores?.work_life_balance);
         const lines = [];
-        if (wlb != null)                lines.push(`AIワークライフバランス評価: ${wlb} / 10`);
+        if (wlb != null)                lines.push(`AIワークライフバランス評価: ${Math.round(wlb * 10)}%`);
         if (c.overtime_hours  != null)  lines.push(`月平均残業: ${c.overtime_hours}時間`);
         if (c.paid_leave_rate != null)  lines.push(`有給消化率: ${c.paid_leave_rate}%`);
         if (c.work_style)               lines.push(`勤務形態: ${c.work_style}`);
@@ -1603,8 +1609,8 @@ function buildRankingAxes(mode) {
         const t = normalizeScore10(c.tech_growth_score);
         const g = normalizeScore10(c.career_growth_score);
         const lines = [];
-        if (t != null) lines.push(`技術が身につきやすさ: ${t} / 10`);
-        if (g != null) lines.push(`キャリアが上がりやすさ: ${g} / 10`);
+        if (t != null) lines.push(`技術が身につきやすさ: ${scorePct(c.tech_growth_score)}`);
+        if (g != null) lines.push(`キャリアが上がりやすさ: ${scorePct(c.career_growth_score)}`);
         if (c.career_path) {
           const short = c.career_path.length > 60 ? c.career_path.slice(0, 60) + '…' : c.career_path;
           lines.push(`キャリアパス: ${short}`);
@@ -1637,11 +1643,11 @@ function buildRankingAxes(mode) {
         const t = normalizeScore10(c.tech_growth_score);
         const g = normalizeScore10(c.career_growth_score);
         const lines = [];
-        if (h != null) lines.push(`採用可能性: ${h}/10（ウェイト 30%）`);
-        if (s != null) lines.push(`給与評価: ${s}/10（ウェイト 20%）`);
-        if (w != null) lines.push(`ワークライフバランス: ${w}/10（ウェイト 20%）`);
-        if (t != null) lines.push(`技術成長: ${t}/10（ウェイト 15%）`);
-        if (g != null) lines.push(`キャリア成長: ${g}/10（ウェイト 15%）`);
+        if (h != null) lines.push(`採用可能性: ${scorePct(c.hiring_probability_score)}（ウェイト 30%）`);
+        if (s != null) lines.push(`給与評価: ${Math.round(s * 10)}%（ウェイト 20%）`);
+        if (w != null) lines.push(`ワークライフバランス: ${Math.round(w * 10)}%（ウェイト 20%）`);
+        if (t != null) lines.push(`技術成長: ${scorePct(c.tech_growth_score)}（ウェイト 15%）`);
+        if (g != null) lines.push(`キャリア成長: ${scorePct(c.career_growth_score)}（ウェイト 15%）`);
         return lines;
       },
     },
