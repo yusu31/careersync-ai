@@ -112,6 +112,8 @@ location, work_style, overtime_hours, paid_leave_rate, transfer,
 salary, expected_first_salary, salary_upper, inexperienced_ok, training_program,
 hiring_probability_score, job_description, skill_stack, tech_growth_score,
 career_growth_score, career_path, benefits, summary,
+job_url（求人ページのURL。求人票・スカウト文・エージェント紹介文から抽出したURL）,
+job_sources（求人元プラットフォーム名の配列。例: ["Wantedly"] / ["doda"] / ["Green"] / ["ビズリーチ"] 等。複数可）,
 strengths_weaknesses（{{strengths:[...], weaknesses:[...]}}）,
 interview_strategy（[{{question, answer}},...] の配列）,
 scores（{{growth, stability, culture_fit, work_life_balance, compensation}} 各1〜10）

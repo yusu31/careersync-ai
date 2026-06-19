@@ -538,6 +538,9 @@ async def analyze_company_endpoint(company_id: int):
         "career_path", "benefits", "qualification_support", "beginner_description",
         "summary", "strengths_weaknesses", "interview_strategy", "scores",
     }
+    # unknown-xxx URL の企業のみ、AIが見つけた正しいURLでDB更新を許可する
+    if company_url.startswith("unknown-"):
+        valid_columns.add("url")
     updates = {k: v for k, v in updates.items() if k in valid_columns}
 
     conn = get_connection()
@@ -658,6 +661,14 @@ async def supplement_company(
     if not updates:
         return {"updated_fields": [], "company": current_info}
 
+    # job_sources は上書きではなく既存リストとマージする
+    if "job_sources" in updates:
+        existing_sources = json.loads(current_info.get("job_sources") or "[]")
+        new_sources = updates.pop("job_sources")
+        if isinstance(new_sources, list) and new_sources:
+            merged = list(dict.fromkeys(existing_sources + new_sources))
+            updates["job_sources"] = json.dumps(merged, ensure_ascii=False)
+
     # companies テーブルの有効カラムのみ抽出
     valid_columns = {
         "name", "industry", "employees", "founded_year", "listing_status",
@@ -668,6 +679,7 @@ async def supplement_company(
         "tech_growth_score", "career_growth_score", "career_path",
         "benefits", "qualification_support", "beginner_description",
         "summary", "strengths_weaknesses", "interview_strategy", "scores",
+        "job_url", "job_sources",
     }
     safe_updates = {k: v for k, v in updates.items() if k in valid_columns}
 

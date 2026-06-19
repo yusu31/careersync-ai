@@ -83,6 +83,7 @@ def _build_prompt(url: str, scraped_text: str, user_profile: dict) -> str:
 
 {{
   "name": "企業名（文字列）",
+  "url": "コーポレートサイトのURL（企業名・業種等から調べて入れること。不明なら null）",
   "industry": "業種（例: SaaS / 製造業 / コンサル / Webサービス）",
   "employees": "従業員数（例: 100〜300人）",
   "founded_year": 設立年（整数 or null）,

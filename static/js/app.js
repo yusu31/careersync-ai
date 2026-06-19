@@ -109,7 +109,7 @@ function renderCompanyList() {
         </div>
         <div class="text-xs text-gray-400 mt-0.5 truncate">${displayUrl}</div>
         <div class="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-          ${c.hiring_probability_score ? `<span>採用 <b>${Math.round(c.hiring_probability_score)}%</b></span>` : ''}
+          ${c.hiring_probability_score ? `<span>採用 <b>${scorePct(c.hiring_probability_score) || '-'}</b></span>` : ''}
           ${c.expected_first_salary   ? `<span>💴 ${c.expected_first_salary}万</span>` : ''}
           ${!analyzed ? '<span class="text-orange-400 font-medium">未分析</span>' : ''}
         </div>
@@ -168,7 +168,9 @@ function renderDetail(c) {
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
       <div class="min-w-0">
         <h2 class="text-xl font-bold text-gray-900 break-all">${c.name || '(名称未取得)'}</h2>
-        <a href="${c.url}" target="_blank" class="text-xs text-indigo-600 hover:underline break-all">${c.url}</a>
+        ${c.url && !c.url.startsWith('unknown-')
+          ? `<a href="${c.url}" target="_blank" class="text-xs text-indigo-600 hover:underline break-all">${c.url}</a>`
+          : ''}
         ${c.job_url ? `<a href="${c.job_url}" target="_blank" class="block text-xs text-blue-500 hover:underline break-all">求人票: ${c.job_url}</a>` : ''}
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
@@ -812,7 +814,13 @@ function renderJobSourcesCard(c) {
 
   return `
     <div class="bg-white rounded-xl border border-gray-200 p-4 mt-5" id="sources-card-${c.id}">
-      <h3 class="text-sm font-semibold text-gray-700 mb-3">📋 求人元 / エージェント</h3>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-gray-700">📋 求人元 / エージェント</h3>
+        ${c.job_url ? `<a href="${c.job_url}" target="_blank"
+          class="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+          🔗 求人票を見る
+        </a>` : ''}
+      </div>
       <div class="source-input-wrap mb-3" id="sources-tags-${c.id}" onclick="focusSourceInput(${c.id})">
         ${tagsHtml}
         <input type="text" id="source-input-${c.id}" placeholder="${sources.length === 0 ? 'エージェント名を入力...' : ''}"
@@ -887,10 +895,12 @@ function scoreBar(label, score, color) {
     </div>`;
 }
 
-// 採用確率専用バー（0〜100%スケール）
+// 採用確率専用バー（0〜10スケール → %表示）
 function hiringBar(score) {
   if (score === null || score === undefined) return '';
-  const pct = Math.min(Math.round(score), 100);
+  const pctStr = scorePct(score);
+  if (!pctStr) return '';
+  const pct = parseInt(pctStr);
   const color = pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-yellow-600' : 'text-red-500';
   return `
     <div class="score-bar-hiring">
@@ -1197,12 +1207,13 @@ function scoreClass(val) {
   return 'low';
 }
 
-// 採用確率専用（0〜100%スケール）
+// 採用確率専用（0〜10スケール）
 function hiringClass(val) {
   if (val == null || val === '') return 'none';
-  const n = Number(val);
-  if (n >= 70) return 'high';
-  if (n >= 40) return 'mid';
+  const n = normalizeScore10(Number(val));
+  if (n == null) return 'none';
+  if (n >= 7) return 'high';
+  if (n >= 4) return 'mid';
   return 'low';
 }
 
@@ -1213,10 +1224,10 @@ function scoreChip(val) {
 
 function hiringChip(val) {
   if (val == null || val === '') return '<span class="score-chip none">—</span>';
-  return `<span class="score-chip ${hiringClass(val)}">${Math.round(Number(val))}%</span>`;
+  return `<span class="score-chip ${hiringClass(val)}">${scorePct(val) || '-'}</span>`;
 }
 
-// 総合スコア: hiring_probability_score は0〜100なので除外して0〜10系だけ平均
+// 総合スコア: hiring_probability_score は0〜10スケールなので除外して他のスコアのみ平均
 function calcTotal(scores, tech, career) {
   const vals = [
     scores?.growth, scores?.stability, scores?.culture_fit,
